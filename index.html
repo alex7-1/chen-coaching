@@ -433,14 +433,30 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
   <div class="br"><button class="btn" onclick="closeMo('mo-prod')">取消</button><button class="btn pri" onclick="saveProd()">保存</button></div>
 </div></div>
 
-<div class="mo" id="mo-edit-ord"><div class="mbox" style="width:460px">
+<!-- ✅ 修改1：编辑订单弹窗 - 增加完整字段编辑支持 -->
+<div class="mo" id="mo-edit-ord"><div class="mbox" style="width:560px">
   <div class="mt">编辑订单</div>
-  <div class="fg c1">
-    <div class="ff"><label>状态</label>
-      <select id="eom-stat"><option>Policiert</option><option>Nachbearbeitung</option><option>Policiert - Keine Prov</option><option>Problem Fall</option><option>Eingereicht</option><option>已结算</option></select></div>
+  <div class="fg">
+    <div class="ff"><label>销售人员 Berater</label><select id="eom-agent"></select></div>
+    <div class="ff"><label>供应商 Anbieter</label><select id="eom-prov"></select></div>
+    <div class="ff"><label>产品 Produkt</label><select id="eom-prod"></select></div>
+    <div class="ff"><label>Versicherungsnehmer（投保人）</label><input id="eom-vn" placeholder="Vorname Name"/></div>
+    <div class="ff"><label>versicherte Person（被保险人）</label><input id="eom-vp" placeholder="如与投保人相同可留空"/></div>
+    <div class="ff"><label>Antragsnummer</label><input id="eom-appl" placeholder="AN-2026-"/></div>
+    <div class="ff"><label>Vertragsnummer</label><input id="eom-vnum"/></div>
+    <div class="ff"><label>Tarifname</label><input id="eom-tarif"/></div>
+    <div class="ff"><label>Vertragsbeginn</label><input id="eom-beginn" type="date"/></div>
+    <div class="ff"><label>Eingereicht per</label><input id="eom-via" placeholder="FF / Mail / …"/></div>
+    <div class="ff"><label>Status</label>
+      <select id="eom-stat">
+        <option>Policiert</option><option>Nachbearbeitung</option>
+        <option>Policiert - Keine Prov</option><option>Problem Fall</option>
+        <option>Eingereicht</option><option>已结算</option>
+      </select>
+    </div>
     <div class="ff"><label>Abrechnungsdatum</label><input id="eom-date" type="date"/></div>
-    <div class="ff"><label>Beschreibung / Notizen</label><textarea id="eom-desc" rows="3"></textarea></div>
   </div>
+  <div class="ff" style="margin-bottom:12px"><label>Beschreibung / Notizen</label><textarea id="eom-desc" rows="3"></textarea></div>
   <div id="eom-approve-btn" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);font-size:13px;color:var(--tx-success);cursor:pointer;font-weight:500;text-align:center"></div>
   <div class="br">
     <button class="btn" onclick="closeMo('mo-edit-ord')">取消</button>
@@ -469,9 +485,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
         </div>
       </div>
     </div>
-    <!-- 统计卡片 -->
     <div class="stats" id="inc-stats" style="margin-bottom:16px"></div>
-    <!-- 订单明细 -->
     <table><thead><tr><th>日期</th><th>客户</th><th>产品</th><th>订单总佣金</th><th>个人比例</th><th>到手金额</th><th>状态</th></tr></thead>
     <tbody id="inc-table"></tbody></table>
   </div>
@@ -495,7 +509,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 </div>
 
 </main>
-</div><!-- end main-app -->
+</div>
 
 <!-- USER MODAL -->
 <div class="mo" id="mo-user"><div class="mbox" style="width:440px">
@@ -518,23 +532,15 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 </div></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-//  ↓↓↓  第一步：把这行 URL 替换成你的 Apps Script 部署链接  ↓↓↓
-// ═══════════════════════════════════════════════════════════════
-// 自动检测 API URL：
-// - 在 Apps Script 托管时，使用当前页面 URL
-// - 在 Netlify/本地时，使用配置的 URL
 const _CONFIGURED_URL = 'https://web-production-71c0.up.railway.app';
 const API_URL = (function(){
   const loc = window.location.href;
   if(loc.includes('script.google.com') || loc.includes('googleusercontent.com')){
-    // 在 Apps Script 内托管，用 google.script.run 或同域 fetch
     return _CONFIGURED_URL;
   }
   return _CONFIGURED_URL;
 })();
 
-// ── 默认数据（首次初始化时写入 Google Sheets）─────────────────
 const DEFAULT_DATA = {
   agents:[
     {id:'a1',name:'Dehua Chen',mak:'MAK194317',email:'',tel:''},
@@ -646,7 +652,6 @@ const DEFAULT_DATA = {
   renewals:[],
 };
 
-// ── 运行时状态 ──────────────────────────────────────────────
 const S = {
   agents:[], providers:[], products:[], rules:[], orders:[], renewals:[],
   eId:{rule:null,agent:null,prov:null,prod:null,order:null},
@@ -654,25 +659,17 @@ const S = {
   ready: false,
 };
 
-// ══════════════════════════════════════════════════════════════
-//  API 层  —  带本地缓存 + 自动重试 + 状态指示器
-//  适合 15+ 人同时使用：操作先写本地缓存立即响应，
-//  再后台静默同步到 Google Sheets，失败自动队列重试。
-// ══════════════════════════════════════════════════════════════
-
-const LC_KEY = 'cc_cache_v2';       // localStorage 缓存 key
-const RETRY_KEY = 'cc_retry_queue'; // 待重试队列
+const LC_KEY = 'cc_cache_v2';
+const RETRY_KEY = 'cc_retry_queue';
 let _syncTimer = null;
 let _retryTimer = null;
-let _pendingWrites = 0;             // 进行中的写入数量
+let _pendingWrites = 0;
 
 function apiConfigured() {
   return API_URL && API_URL.startsWith('https://');
 }
 
-// ── 状态指示器（右下角小标） ────────────────────────────────
 function setStatus(state, msg) {
-  // state: 'ok' | 'saving' | 'error' | 'offline'
   let el = document.getElementById('_sync_status');
   if (!el) {
     el = document.createElement('div');
@@ -693,7 +690,6 @@ function setStatus(state, msg) {
   else el.style.opacity = '1';
 }
 
-// ── 本地缓存读写 ────────────────────────────────────────────
 function localLoad() {
   try { return JSON.parse(localStorage.getItem(LC_KEY) || 'null'); } catch(e) { return null; }
 }
@@ -707,12 +703,11 @@ function localSave() {
   } catch(e) {}
 }
 
-// ── 失败队列（写入失败后排队，稍后重试）────────────────────
 function enqueueRetry(action, sheet, data) {
   try {
     const q = JSON.parse(localStorage.getItem(RETRY_KEY) || '[]');
     q.push({action, sheet, data, ts: Date.now()});
-    localStorage.setItem(RETRY_KEY, JSON.stringify(q.slice(-50))); // 最多保留50条
+    localStorage.setItem(RETRY_KEY, JSON.stringify(q.slice(-50)));
   } catch(e) {}
 }
 async function flushRetryQueue() {
@@ -727,7 +722,7 @@ async function flushRetryQueue() {
       try {
         await _rawPost({action: item.action, sheet: item.sheet, data: item.data});
       } catch(e) {
-        remaining.push(item); // 还是失败，留着下次
+        remaining.push(item);
       }
     }
     localStorage.setItem(RETRY_KEY, JSON.stringify(remaining));
@@ -735,7 +730,6 @@ async function flushRetryQueue() {
   } catch(e) {}
 }
 
-// ── 原始 fetch ──────────────────────────────────────────────
 async function _rawGet(params) {
   const action = params.action;
   let url;
@@ -745,7 +739,6 @@ async function _rawGet(params) {
   else if(action === 'ping') url = API_URL + '/ping';
   else url = API_URL + '/ping';
   const headers = {};
-  // Get token from sessionStorage if CU.token is undefined
   const token = CU?.token || JSON.parse(sessionStorage.getItem('cc_session')||'{}').token;
   if(token) headers['X-Token'] = token;
   const r = await fetch(url, {signal: AbortSignal.timeout(20000), headers});
@@ -760,7 +753,7 @@ async function _rawPost(body) {
   else if(action === 'delete') { url = API_URL + '/delete/' + body.sheet + '/' + body.data.id; method = 'DELETE'; }
   else if(action === 'writeAll') url = API_URL + '/init';
   else if(action === 'approve') url = API_URL + '/approve';
-  else if(action === 'listUsers') { 
+  else if(action === 'listUsers') {
     const headers = {'X-Token': CU?.token||''};
     const r = await fetch(API_URL + '/users', {headers, signal: AbortSignal.timeout(20000)});
     return r.json();
@@ -778,14 +771,13 @@ async function _rawPost(body) {
   return r.json();
 }
 
-// ── 带重试的写操作（先更新本地，再后台同步）──────────────
 async function apiWrite(sheet, data) {
   localSave();
   if (!apiConfigured()) { setStatus('offline'); return; }
   _pendingWrites++;
   setStatus('saving');
   try {
-    await _rawPost({action: 'write', sheet, data});
+    await apiPostAuth({action:'write', sheet, data});
     _pendingWrites--;
     if (_pendingWrites === 0) setStatus('ok');
   } catch(e) {
@@ -801,7 +793,7 @@ async function apiUpdate(sheet, data) {
   _pendingWrites++;
   setStatus('saving');
   try {
-    await _rawPost({action: 'update', sheet, data});
+    await apiPostAuth({action:'update', sheet, data});
     _pendingWrites--;
     if (_pendingWrites === 0) setStatus('ok');
   } catch(e) {
@@ -817,7 +809,7 @@ async function apiDelete(sheet, id) {
   _pendingWrites++;
   setStatus('saving');
   try {
-    await _rawPost({action: 'delete', sheet, data: {id}});
+    await apiPostAuth({action:'delete', sheet, data:{id}});
     _pendingWrites--;
     if (_pendingWrites === 0) setStatus('ok');
   } catch(e) {
@@ -833,14 +825,13 @@ function scheduleRetry() {
   _retryTimer = setTimeout(async () => {
     _retryTimer = null;
     await flushRetryQueue();
-  }, 30000); // 30秒后重试
+  }, 30000);
 }
 
-// ── 后台定时从 Sheets 同步新数据（每3分钟）────────────────
 function startAutoSync() {
   if (!apiConfigured()) return;
   _syncTimer = setInterval(async () => {
-    if (_pendingWrites > 0) return; // 有写入进行中，跳过这次
+    if (_pendingWrites > 0) return;
     try {
       const data = await _rawGet({action: 'readAll'});
       if (data.error) return;
@@ -848,7 +839,6 @@ function startAutoSync() {
         S[k] = (data[k] || []).map(normalizeRow);
       });
       localSave();
-      // 刷新当前页面显示
       const activePage = document.querySelector('.page.on')?.id?.replace('page-','');
       if (activePage) ({dashboard:rDash,orders:rOrders,settlement:rSettle,renewals:rRenewals,promotion:rPromo})[activePage]?.();
       setStatus('ok', '已同步 ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
@@ -857,11 +847,8 @@ function startAutoSync() {
   }, 3 * 60 * 1000);
 }
 
-// ── 加载所有数据 ────────────────────────────────────────────
 async function loadAll() {
   showLoading(true);
-
-  // 1. 先用本地缓存立即渲染，用户不用等
   const cached = localLoad();
   if (cached) {
     ['agents','providers','products','rules','orders','renewals'].forEach(k => {
@@ -872,8 +859,6 @@ async function loadAll() {
     rDash();
     setStatus('saving', '加载中…');
   }
-
-  // 2. 未配置 API → 纯本地模式
   if (!apiConfigured()) {
     if (!cached) {
       Object.assign(S, JSON.parse(JSON.stringify(DEFAULT_DATA)));
@@ -885,14 +870,11 @@ async function loadAll() {
     setStatus('offline');
     return;
   }
-
-  // 3. 后台从 Google Sheets 拉取最新数据
   try {
     const data = await _rawGet({action: 'readAll'});
     if (data.error) throw new Error(data.error);
     const isEmpty = !data.agents || data.agents.length === 0;
     if (isEmpty) {
-      // 首次使用：把默认数据写入 Sheets
       await _rawPost({action: 'writeAll', data: DEFAULT_DATA});
       Object.assign(S, JSON.parse(JSON.stringify(DEFAULT_DATA)));
     } else {
@@ -906,10 +888,9 @@ async function loadAll() {
     rDash();
     setStatus('ok');
     startAutoSync();
-    await flushRetryQueue(); // 启动时冲刷之前失败的队列
+    await flushRetryQueue();
   } catch(e) {
     if (!cached) {
-      // 没有缓存也没法连网：加载默认数据
       Object.assign(S, JSON.parse(JSON.stringify(DEFAULT_DATA)));
       localSave();
       showLoading(false);
@@ -926,7 +907,6 @@ function normalizeRow(row) {
   if (r.active === 'true') r.active = true;
   if (r.active === 'false') r.active = false;
   if (r.active === true || r.active === false) {} else r.active = !!r.active;
-  // numeric fields
   if (r.commissionRate !== undefined && r.commissionRate !== null && r.commissionRate !== '') {
     r.commissionRate = parseFloat(r.commissionRate);
   }
@@ -941,17 +921,14 @@ function normalizeRow(row) {
     }
     if (r[k] === null && k !== 'snap' && k !== 'splits') r[k] = k==='params'?{}:[];
   });
-  // Ensure params values are numbers
   if (r.params && typeof r.params === 'object') {
     Object.keys(r.params).forEach(k => {
       const v = r.params[k];
       if (v !== '' && !isNaN(parseFloat(v))) r.params[k] = parseFloat(v);
     });
   }
-  // Ensure vars and lbls are arrays
   if (r.vars && !Array.isArray(r.vars)) r.vars = [];
   if (r.lbls && !Array.isArray(r.lbls)) r.lbls = [];
-  // active field for rules
   if (r.active === 'TRUE' || r.active === 'True' || r.active === true || r.active === 1 || r.active === '1') r.active = true;
   else if (r.active === 'FALSE' || r.active === 'False' || r.active === false || r.active === 0 || r.active === '0' || r.active === '') r.active = false;
   if (r.snap && typeof r.snap === 'object') {
@@ -963,7 +940,6 @@ function normalizeRow(row) {
   return r;
 }
 
-// ── UI 工具 ─────────────────────────────────────────────────
 function showLoading(on, errMsg) {
   let el = document.getElementById('loading-overlay');
   if (!el) {
@@ -981,7 +957,6 @@ function showLoading(on, errMsg) {
   document.head.appendChild(style);
 }
 
-// ── 同步按钮 ────────────────────────────────────────────────
 function addSyncBtn() {
   const logo = document.querySelector('.sidebar-logo');
   if (!logo) return;
@@ -991,7 +966,6 @@ function addSyncBtn() {
   btn.onmouseenter = () => btn.style.background = 'rgba(255,255,255,.06)';
   btn.onmouseleave = () => btn.style.background = '';
   btn.textContent = apiConfigured() ? '⟳ 从服务器同步' : '⚠ 本地模式（未配置API）';
-  btn.title = apiConfigured() ? '点击立即从 Google Sheets 重新加载所有数据' : '在 HTML 文件中设置 API_URL 以启用多设备同步';
   btn.onclick = async () => {
     if (!apiConfigured()) return;
     btn.textContent = '⟳ 同步中…';
@@ -1016,7 +990,6 @@ function addSyncBtn() {
   logo.after(btn);
 }
 
-// ── HELPERS ─────────────────────────────────────────────────
 function uid(){return 'x'+Date.now()+Math.random().toString(36).slice(2,5)}
 function eur(v){if(v===null||v===undefined||isNaN(v))return '—';return '€\u00a0'+Number(v).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function days(d){return Math.round((new Date(d)-new Date())/(86400000))}
@@ -1029,17 +1002,20 @@ function calcFml(fml,vars){
 }
 function sc(s){if(s==='Policiert'||s==='已结算')return 'g';if(s==='Nachbearbeitung')return 'a';if(s==='Problem Fall')return 'r';return 'gr'}
 
-// ── NAV ─────────────────────────────────────────────────────
 function nav(p){
   document.querySelectorAll('.nv').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelector(`.nv[onclick="nav('${p}')"]`)?.classList.add('on');
   document.getElementById('page-'+p)?.classList.add('on');
-  ({dashboard:rDash,orders:rOrders,'new-order':rNewOrd,rules:rRules,'rule-test':rRuleTest,
-    promotion:rPromo,settlement:rSettle,renewals:rRenewals,admin:rAdmin})[p]?.();
+  const pageMap = {
+    dashboard:rDash, orders:rOrders, 'new-order':rNewOrd,
+    rules:rRules, 'rule-test':rRuleTest, promotion:rPromo,
+    settlement:rSettle, renewals:rRenewals, admin:rAdmin,
+    audit:loadAuditLog, users:rUsers, income:rIncome,
+  };
+  pageMap[p]?.();
 }
 
-// ── DASHBOARD ───────────────────────────────────────────────
 function rDash(){
   const tot=S.orders.reduce((s,o)=>s+(o.snap?.result||0),0);
   const pnd=S.orders.filter(o=>o.status!=='已结算').reduce((s,o)=>s+(o.snap?.result||0),0);
@@ -1057,7 +1033,6 @@ function rDash(){
   document.getElementById('dash-renewals').innerHTML=rs.length?rs.map(r=>`<tr><td>${r.cust}</td><td>${r.type}</td><td>${r.end}</td><td><span class="bdg ${days(r.end)<=30?'r':'a'}">${days(r.end)}天</span></td></tr>`).join(''):'<tr><td colspan="4" class="empty">无</td></tr>';
 }
 
-// ── NEW ORDER ────────────────────────────────────────────────
 function rNewOrd(){
   const ag=document.getElementById('no-agent');
   ag.innerHTML='<option value="">请选择…</option>'+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
@@ -1069,13 +1044,11 @@ function rNewOrd(){
   document.getElementById('no-res').textContent='€ 0,00';
   document.getElementById('no-rbdg').style.display='none';
   ['no-vn','no-vp','no-appl','no-vnum','no-tarif','no-date','no-via','no-desc'].forEach(id=>{document.getElementById(id).value=''});
-  // reset split UI
   document.getElementById('no-split-toggle').checked=false;
   document.getElementById('no-split-single').style.display='block';
   document.getElementById('no-split-multi').style.display='none';
   document.getElementById('no-split-rows').innerHTML='';
   updateSplitSum();
-  // pre-select own agent for non-admin
   if(CU && !seeAllOrders() && CU.agentId){
     const agSel = document.getElementById('no-agent');
     if(agSel){ agSel.value = CU.agentId; agSel.disabled = true; }
@@ -1084,7 +1057,7 @@ function rNewOrd(){
     if(agSel) agSel.disabled = false;
   }
 }
-// ── 分佣逻辑 ────────────────────────────────────────────────
+
 function toggleSplit(){
   const on=document.getElementById('no-split-toggle').checked;
   document.getElementById('no-split-single').style.display=on?'none':'block';
@@ -1099,7 +1072,7 @@ function toggleSplit(){
 function addSplitRow(agId='',pct='',extName=''){
   const rows=document.getElementById('no-split-rows');
   const div=document.createElement('div');
-  const isExt=!!extName; // 外部人员模式
+  const isExt=!!extName;
   div.style.cssText='display:grid;grid-template-columns:28px 1fr 110px 32px;gap:6px;align-items:center;margin-bottom:2px';
   div.innerHTML=`
     <button type="button" title="${isExt?'切换为内部销售员':'切换为外部/转介绍人员'}"
@@ -1132,7 +1105,6 @@ function toggleSplitRowMode(btn){
   const cell=row.querySelector('.split-person-cell');
   const isExt=btn.dataset.ext==='1';
   if(isExt){
-    // 切换回内部销售员下拉
     btn.dataset.ext='0'; btn.textContent='▾';
     btn.style.background='var(--bg2)'; btn.style.color='var(--tx2)';
     btn.title='切换为外部/转介绍人员';
@@ -1141,7 +1113,6 @@ function toggleSplitRowMode(btn){
       ${S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>`;
   } else {
-    // 切换为外部自由输入
     btn.dataset.ext='1'; btn.textContent='✎';
     btn.style.background='var(--bg-warn)'; btn.style.color='var(--tx-warn)';
     btn.title='切换为内部销售员';
@@ -1157,9 +1128,9 @@ function updateSplitSum(){
   if(!el)return;
   const agId=document.getElementById('no-agent').value;
   const targetRate=getAgentRate(agId);
-  const gmbhPct=Math.max(0, 100-splitTotal);  // GmbH 自动 = 100% - 销售员合计
-  const isOver=splitTotal>targetRate+0.005;    // 超出销售员个人比例 → GmbH 补贴
-  const isHard=splitTotal>100.005;             // 超过100% → 绝对不行
+  const gmbhPct=Math.max(0, 100-splitTotal);
+  const isOver=splitTotal>targetRate+0.005;
+  const isHard=splitTotal>100.005;
   let msg='';
   if(isHard){
     msg=`<strong style="color:var(--tx-danger)">⛔ ${splitTotal.toFixed(1)}% 超过 100%，请减少</strong>`;
@@ -1183,7 +1154,7 @@ function getSplitData(){
     const isExt=btn?.dataset.ext==='1';
     if(isExt){
       const name=(row.querySelector('.split-extname')?.value||'').trim();
-      if(!name) return null; // 外部姓名为空则跳过
+      if(!name) return null;
       return {agId:'', extName:name, pct, isExternal:true};
     } else {
       const agId=row.querySelector('.split-agent')?.value||'';
@@ -1229,7 +1200,6 @@ function noCalc(){
   const res=calcFml(rule.fml,av);
   if(isNaN(res)){document.getElementById('no-res').textContent='公式错误';document.getElementById('no-breakdown').innerHTML='';return;}
   document.getElementById('no-res').textContent=eur(res);
-  // show per-agent breakdown
   updateBreakdown(res);
 }
 function getAgentRate(agId){
@@ -1240,23 +1210,15 @@ function updateBreakdown(total){
   const agId=document.getElementById('no-agent').value;
   if(!agId||isNaN(total)){document.getElementById('no-breakdown').innerHTML='';return;}
   const isMulti=document.getElementById('no-split-toggle').checked;
-  const rate=getAgentRate(agId); // 主销售员个人比例 e.g. 33
-
+  const rate=getAgentRate(agId);
   let rows='';
   let gmbhPct, gmbhAmt, subsidyPct=0;
-
   if(!isMulti){
-    // 单人：销售员 rate%，GmbH 100-rate%
     const agentAmt=total*(rate/100);
     gmbhPct=100-rate;
     gmbhAmt=total*(gmbhPct/100);
-    rows=`<tr>
-      <td>${S.agents.find(x=>x.id===agId)?.name||'—'}</td>
-      <td style="color:var(--tx-info)">${rate.toFixed(1)}%</td>
-      <td style="font-weight:500;color:var(--tx-info)">${eur(agentAmt)}</td>
-    </tr>`;
+    rows=`<tr><td>${S.agents.find(x=>x.id===agId)?.name||'—'}</td><td style="color:var(--tx-info)">${rate.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(agentAmt)}</td></tr>`;
   } else {
-    // read each row — supports both internal (select) and external (text input)
     const splitRowEls=[...document.querySelectorAll('#no-split-rows > div')];
     const splits=splitRowEls.map(row=>{
       const pct=parseFloat(row.querySelector('.split-pct')?.value)||0;
@@ -1271,59 +1233,26 @@ function updateBreakdown(total){
       }
     }).filter(Boolean);
     const splitTotal=splits.reduce((s,r)=>s+r.pct,0);
-    // GmbH = 100% - 销售员合计（可能 < 正常留存，说明有补贴）
     gmbhPct=Math.max(0,100-splitTotal);
     gmbhAmt=total*(gmbhPct/100);
-    subsidyPct=Math.max(0,splitTotal-rate); // 超出个人比例的部分 = GmbH 补贴
+    subsidyPct=Math.max(0,splitTotal-rate);
     rows=splits.map(r=>{
       const amt=total*(r.pct/100);
-      const nameCell=r.isExt
-        ?`<span style="color:var(--tx-warn);font-style:italic">${r.name}</span>`
-        :r.name;
-      return `<tr>
-        <td>${nameCell}</td>
-        <td style="color:var(--tx-info)">${r.pct.toFixed(1)}%</td>
-        <td style="font-weight:500;color:var(--tx-info)">${eur(amt)}</td>
-      </tr>`;
+      const nameCell=r.isExt?`<span style="color:var(--tx-warn);font-style:italic">${r.name}</span>`:r.name;
+      return `<tr><td>${nameCell}</td><td style="color:var(--tx-info)">${r.pct.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(amt)}</td></tr>`;
     }).join('');
   }
-
-  // GmbH 行：拆分显示正常留存 + 额外补贴
   if(subsidyPct>0){
-    // 正常留存部分
     const normalGmbhPct=(100-rate);
     const normalGmbhAmt=total*(normalGmbhPct/100);
-    // 超出补贴部分（只有超出那几%）
     const subsidyAmt=Math.round(total*(subsidyPct/100)*100)/100;
-    rows+=`<tr style="border-top:.5px solid var(--bd)">
-      <td style="color:var(--tx2)">GmbH（正常留存）</td>
-      <td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td>
-      <td style="color:var(--tx2)">${eur(normalGmbhAmt)}</td>
-    </tr>
-    <tr>
-      <td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td>
-      <td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td>
-      <td style="color:var(--tx-warn);font-weight:500">${eur(subsidyAmt)}</td>
-    </tr>`;
+    rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（正常留存）</td><td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(normalGmbhAmt)}</td></tr>
+    <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(subsidyAmt)}</td></tr>`;
   } else {
-    rows+=`<tr style="border-top:.5px solid var(--bd)">
-      <td style="color:var(--tx2)">GmbH（自动计算）</td>
-      <td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td>
-      <td style="color:var(--tx2)">${eur(gmbhAmt)}</td>
-    </tr>`;
+    rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
   }
-
-  const subsidyBanner=subsidyPct>0
-    ?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH 额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`
-    :'';
-
-  document.getElementById('no-breakdown').innerHTML=`
-    ${subsidyBanner}
-    <div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div>
-    <table style="font-size:12px;width:100%">
-      <thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  const subsidyBanner=subsidyPct>0?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH 额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`:'';
+  document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function saveOrder(){
   const agId=document.getElementById('no-agent').value;
@@ -1335,7 +1264,6 @@ async function saveOrder(){
   if(!pvId){alert('请选择供应商');return}
   if(!pdId){alert('请选择产品');return}
   if(!vn){alert('请填写 Versicherungsnehmer（投保人）');return}
-  // 验证分佣
   const splits=getSplitData();
   if(splits!==null){
     if(splits.length<2){alert('多人分佣模式请至少添加两位销售员');return}
@@ -1356,11 +1284,10 @@ async function saveOrder(){
     const av={...rule.params,...inputs};const res=calcFml(rule.fml,av);
     const total=isNaN(res)?null:Math.round(res*100)/100;
     let breakdown=null;
-    let gmbhSubsidy=false; // GmbH 补贴标记
+    let gmbhSubsidy=false;
     if(total!==null){
-      const rate=getAgentRate(agId); // 主销售员个人比例
+      const rate=getAgentRate(agId);
       if(!splits){
-        // 单人
         const agentAmt=Math.round(total*(rate/100)*100)/100;
         const gmbhAmt=Math.round(total*(1-rate/100)*100)/100;
         breakdown=[
@@ -1368,11 +1295,10 @@ async function saveOrder(){
           {agId:'gmbh',agName:'GmbH',directPct:100-rate,amount:gmbhAmt,isGmbh:true},
         ];
       } else {
-        // 多人：每人 directPct 直接是占总佣金的%
         const splitSum=splits.reduce((s,r)=>s+r.pct,0);
         const gmbhPct=Math.max(0,100-splitSum);
         const gmbhAmt=Math.round(total*(gmbhPct/100)*100)/100;
-        const subsidyPct=Math.max(0,splitSum-rate); // 超出个人比例部分 = GmbH 补贴
+        const subsidyPct=Math.max(0,splitSum-rate);
         gmbhSubsidy=subsidyPct>0.005;
         breakdown=splits.map(r=>{
           const name=r.isExternal?(r.extName+'（外部）'):(S.agents.find(x=>x.id===r.agId)?.name||'');
@@ -1383,28 +1309,16 @@ async function saveOrder(){
     }
     snap={fml:rule.fml,params:{...rule.params},inputs,result:total,breakdown,gmbhSubsidy,ruleId:rule.id,at:new Date().toISOString()};
   }
-  // 判断是否有 GmbH 补贴（即使无规则也要记录）
   const _splitSum=splits?splits.reduce((s,r)=>s+r.pct,0):0;
   const _rate=getAgentRate(agId);
   const _gmbhSubsidy=splits&&_splitSum>_rate+0.005;
   const _subsidyPct=_gmbhSubsidy?Math.round((_splitSum-_rate)*100)/100:0;
-
-  // 超标时弹确认框（不拦截，但要确认）
   if(_gmbhSubsidy){
     const totalAmt=snap?.result||0;
     const subsidyAmt=Math.round(totalAmt*(_subsidyPct/100)*100)/100;
-    const confirmed=confirm(
-      `⚠ 此订单分佣超出 ${agN(agId)} 的个人比例 ${_rate.toFixed(1)}%
-
-` +
-      `超出部分：${_subsidyPct.toFixed(1)}%（约 ${eur(subsidyAmt)}）需由 GmbH 额外补贴
-
-` +
-      `此订单将标注「待 Dehua 审批」，确认保存？`
-    );
-    if(!confirmed) return; // 用户取消，不保存
+    const confirmed=confirm(`⚠ 此订单分佣超出 ${agN(agId)} 的个人比例 ${_rate.toFixed(1)}%\n\n超出部分：${_subsidyPct.toFixed(1)}%（约 ${eur(subsidyAmt)}）需由 GmbH 额外补贴\n\n此订单将标注「待 Dehua 审批」，确认保存？`);
+    if(!confirmed) return;
   }
-
   const order={id:uid(),agId,pvId,pdId,
     vn,vp,
     appl:document.getElementById('no-appl').value.trim(),
@@ -1414,8 +1328,8 @@ async function saveOrder(){
     via:document.getElementById('no-via').value.trim(),
     splits,
     gmbhSubsidy:_gmbhSubsidy,
-    gmbhSubsidyPct:_subsidyPct,        // 仅超出部分的%
-    gmbhApproved:false,                // Dehua 审批状态，默认待审
+    gmbhSubsidyPct:_subsidyPct,
+    gmbhApproved:false,
     status:document.getElementById('no-stat').value,
     desc:document.getElementById('no-desc').value.trim(),
     snap,settledDate:null,createdAt:new Date().toISOString()};
@@ -1426,11 +1340,16 @@ async function saveOrder(){
   nav('orders');
 }
 
-// ── ORDERS ───────────────────────────────────────────────────
 function rOrders(){
   const fa=document.getElementById('fl-agent');
   fa.innerHTML='<option value="">所有销售员</option>'+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
-  const aF=fa.value,sF=document.getElementById('fl-stat').value;
+  if(!seeAllOrders() && CU?.agentId){
+    fa.value = CU.agentId;
+    fa.disabled = true;
+  } else {
+    fa.disabled = false;
+  }
+  const aF=fa.value, sF=document.getElementById('fl-stat').value;
   const subF=document.getElementById('fl-subsidy')?.value;
   const list=S.orders.filter(o=>
     (aF?o.agId===aF:true)&&
@@ -1446,6 +1365,7 @@ function rOrders(){
     const splitTag=o.splits&&o.splits.length>0
       ?` <span class="tag" title="${o.splits.map(r=>(r.isExternal?r.extName+'（外部）':agN(r.agId))+' '+r.pct+'%').join(' / ')}">+${o.splits.length-1}人</span>`
       :'';
+    // ✅ 修改2：所有人都能看到编辑按钮
     return `<tr${o.gmbhSubsidy?' style="background:rgba(234,179,8,.04)"':''}>
       <td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
       <td>${agN(o.agId)}${splitTag}${subsidyTag}</td>
@@ -1455,10 +1375,14 @@ function rOrders(){
       <td class="mn">${o.appl||'—'}</td><td>${o.date||'—'}</td>
       <td style="font-weight:500">${eur(o.snap?.result)}</td>
       <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-      <td><div style="display:flex;gap:4px"><button class="btn sm" onclick="viewOrd('${o.id}')">快照</button><button class="btn sm" onclick="editOrd('${o.id}')">编辑</button></div></td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn sm" onclick="viewOrd('${o.id}')">快照</button>
+        <button class="btn sm" onclick="editOrd('${o.id}')">编辑</button>
+      </div></td>
     </tr>`;
   }).join(''):'<tr><td colspan="11" class="empty">暂无订单</td></tr>';
 }
+
 function viewOrd(id){
   const o=S.orders.find(x=>x.id===id);S.curOrder=id;const s=o.snap;
   const ir=s?Object.entries(s.inputs||{}).map(([k,v])=>`<tr><td style="color:var(--tx2)">${k}</td><td>${eur(v)}</td></tr>`).join(''):'';
@@ -1466,8 +1390,15 @@ function viewOrd(id){
   const subsidyBanner=o.gmbhSubsidy
     ?(o.gmbhApproved
       ?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--tx-success);margin-bottom:10px;font-weight:500">✓ GmbH 额外补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}% — 已由 Dehua 审批</div>`
-      :`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--tx-warn);margin-bottom:10px;font-weight:500">⚠ GmbH 额外补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}%（${snap?.result?eur(Math.round((snap.result*(o.gmbhSubsidyPct||0)/100)*100)/100):'—'}）— 待 Dehua 审批</div>`)
+      :`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--tx-warn);margin-bottom:10px;font-weight:500">⚠ GmbH 额外补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}% — 待 Dehua 审批</div>`)
     :'';
+  const splitsHtml = o.splits&&o.splits.length>0
+    ? o.splits.map(r=>{
+        const isExt=r.isExternal||!r.agId||r.agId==='ext';
+        const name=isExt?`<span style="color:var(--tx-warn);font-style:italic">${r.extName}（外部）</span>`:agN(r.agId);
+        return `<tr><td>${name}</td><td style="color:var(--tx-info)">${r.pct}%</td><td>${eur((o.snap?.result||0)*(r.pct/100))}</td></tr>`;
+      }).join('')
+    : `<tr><td>${agN(o.agId)}</td><td style="color:var(--tx-info)">${getAgentRate(o.agId).toFixed(1)}%</td><td>${eur((o.snap?.result||0)*(getAgentRate(o.agId)/100))}</td></tr>`;
   document.getElementById('mo-order-content').innerHTML=subsidyBanner+`
     <table style="margin-bottom:10px">
       <tr><td style="color:var(--tx2);width:150px">订单ID</td><td class="mn">${o.id}</td></tr>
@@ -1517,7 +1448,7 @@ function viewOrd(id){
       </div>`:''}
     </div>`
     :'<div class="wb">此订单无佣金快照（未配置规则）</div>'}`;
-  document.getElementById('mo-settle-btn').style.display=o.status==='已结算'?'none':'block';
+  document.getElementById('mo-settle-btn').style.display=(o.status==='已结算'||!canSettle())?'none':'block';
   openMo('mo-order');
 }
 async function settleFromMo(){
@@ -1527,39 +1458,65 @@ async function settleFromMo(){
   await apiUpdate('orders',o);
   closeMo('mo-order');rOrders();
 }
+
+// ✅ 修改3：editOrd 支持完整字段编辑，agent 不能删除订单
 function editOrd(id){
   const o=S.orders.find(x=>x.id===id);S.eId.order=id;
-  document.getElementById('eom-stat').value=o.status;
-  document.getElementById('eom-date').value=o.settledDate||'';
-  document.getElementById('eom-desc').value=o.desc||'';
-  document.getElementById('eom-del').onclick=async()=>{
-    if(confirm('确认删除？')){S.orders=S.orders.filter(x=>x.id!==id);await apiDelete('orders',id);closeMo('mo-edit-ord');rOrders();}
-  };
-  // 显示/隐藏 GmbH 审批按钮（只有 admin 才能看到）
+
+  // 填充销售员下拉
+  const agSel=document.getElementById('eom-agent');
+  agSel.innerHTML=S.agents.map(a=>`<option value="${a.id}"${a.id===o.agId?' selected':''}>${a.name}</option>`).join('');
+  // agent 角色不能改主销售员
+  agSel.disabled = !seeAllOrders();
+
+  // 填充供应商下拉
+  const pvSel=document.getElementById('eom-prov');
+  pvSel.innerHTML='<option value="">请选择…</option>'+S.providers.map(p=>`<option value="${p.id}"${p.id===o.pvId?' selected':''}>${p.name}</option>`).join('');
+
+  // 填充产品下拉
+  const pdSel=document.getElementById('eom-prod');
+  pdSel.innerHTML='<option value="">请选择…</option>'+S.products.map(p=>`<option value="${p.id}"${p.id===o.pdId?' selected':''}>${p.name} (${p.category})</option>`).join('');
+
+  // 填充其他字段
+  document.getElementById('eom-vn').value = o.vn||o.cust||'';
+  document.getElementById('eom-vp').value = o.vp||'';
+  document.getElementById('eom-appl').value = o.appl||'';
+  document.getElementById('eom-vnum').value = o.vnum||'';
+  document.getElementById('eom-tarif').value = o.tarif||'';
+  document.getElementById('eom-beginn').value = o.date||'';
+  document.getElementById('eom-via').value = o.via||'';
+  document.getElementById('eom-stat').value = o.status;
+  document.getElementById('eom-date').value = o.settledDate||'';
+  document.getElementById('eom-desc').value = o.desc||'';
+
+  // ✅ agent 不能删除订单，只有 manager/admin 可以
+  const delBtn=document.getElementById('eom-del');
+  if(canSettle()){
+    delBtn.style.display='block';
+    delBtn.onclick=async()=>{
+      if(confirm('确认删除？')){
+        S.orders=S.orders.filter(x=>x.id!==id);
+        await apiDelete('orders',id);
+        closeMo('mo-edit-ord');rOrders();
+      }
+    };
+  } else {
+    delBtn.style.display='none';
+  }
+
+  // GmbH 审批按钮（只有 admin 才能看到）
   const approveBtn=document.getElementById('eom-approve-btn');
-  if(o.gmbhSubsidy && !o.gmbhApproved && canApprove()){
+  if(o.gmbhSubsidy&&!o.gmbhApproved&&canApprove()){
     approveBtn.style.display='block';
+    approveBtn.style.background='var(--bg-success)';
+    approveBtn.style.color='var(--tx-success)';
+    approveBtn.style.cursor='pointer';
     approveBtn.textContent=`✓ Dehua 审批通过（GmbH补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}%）`;
     approveBtn.onclick=async()=>{
-      const note=prompt('审批备注（可选）：','')||'';
-      o.gmbhApproved=true;
-      o.gmbhApprovedBy=CU.name;
-      o.gmbhApprovedAt=new Date().toISOString();
-      o.gmbhApprovalNote=note;
-      await apiUpdate('orders',o);
-      // 写审批日志到后端
-      if(apiConfigured()){
-        try{
-          await fetch(API_URL+'/approve',{method:'POST',
-            headers:{'Content-Type':'application/json','X-Token':CU?.token||''},
-            body:JSON.stringify({orderId:o.id,note,username:CU.username})});
-        }catch(e){console.warn('audit log failed',e);}
-      }
-      closeMo('mo-edit-ord');
-      rOrders();
-      alert('✓ 审批完成！');
+      await doApprove(id, o);
+      closeMo('mo-edit-ord');rOrders();
     };
-  } else if(o.gmbhSubsidy && o.gmbhApproved){
+  } else if(o.gmbhSubsidy&&o.gmbhApproved){
     approveBtn.style.display='block';
     approveBtn.style.background='var(--bg2)';
     approveBtn.style.color='var(--tx-success)';
@@ -1571,24 +1528,41 @@ function editOrd(id){
   }
   openMo('mo-edit-ord');
 }
+
+// ✅ 修改4：saveOrdEdit 保存所有字段
 async function saveOrdEdit(){
   const o=S.orders.find(x=>x.id===S.eId.order);
-  o.status=document.getElementById('eom-stat').value;
-  o.settledDate=document.getElementById('eom-date').value||null;
-  o.desc=document.getElementById('eom-desc').value;
-  await apiUpdate('orders',o);
-  closeMo('mo-edit-ord');rOrders();
+  if(!o) return;
+  // 只有 manager/admin 可以改销售员
+  if(seeAllOrders()){
+    o.agId = document.getElementById('eom-agent').value || o.agId;
+    o.pvId = document.getElementById('eom-prov').value || o.pvId;
+    o.pdId = document.getElementById('eom-prod').value || o.pdId;
+  }
+  o.vn = document.getElementById('eom-vn').value.trim() || o.vn;
+  o.vp = document.getElementById('eom-vp').value.trim();
+  o.appl = document.getElementById('eom-appl').value.trim();
+  o.vnum = document.getElementById('eom-vnum').value.trim();
+  o.tarif = document.getElementById('eom-tarif').value.trim();
+  o.date = document.getElementById('eom-beginn').value || o.date;
+  o.via = document.getElementById('eom-via').value.trim();
+  o.status = document.getElementById('eom-stat').value;
+  o.settledDate = document.getElementById('eom-date').value || null;
+  o.desc = document.getElementById('eom-desc').value;
+  await apiUpdate('orders', o);
+  closeMo('mo-edit-ord');
+  rOrders();
+  alert('✓ 订单已更新');
 }
 
-// ── SETTLEMENT ───────────────────────────────────────────────
 function rSettle(){
-  document.getElementById('stl-table').innerHTML=S.orders.length?[...S.orders].reverse().map(o=>`<tr>
-    <td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
+  document.getElementById('stl-table').innerHTML=S.orders.length?[...S.orders].reverse().map(o=>
+    `<tr><td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
     <td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td>
     <td>${eur(o.snap?.result)}</td><td>${o.settledDate||'—'}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-    <td>${o.status!=='已结算'?`<button class="btn sm pri" onclick="qSettle('${o.id}')">结算</button>`:'—'}</td>
-    </tr>`).join(''):'<tr><td colspan="8" class="empty">暂无订单</td></tr>';
+    <td>${(o.status!=='已结算'&&canSettle())?`<button class="btn sm pri" onclick="qSettle('${o.id}')">结算</button>`:'—'}</td></tr>`
+  ).join(''):'<tr><td colspan="8" class="empty">暂无订单</td></tr>';
 }
 async function qSettle(id){
   const o=S.orders.find(x=>x.id===id);
@@ -1596,7 +1570,6 @@ async function qSettle(id){
   await apiUpdate('orders',o);rSettle();
 }
 
-// ── PROMOTION ────────────────────────────────────────────────
 function rPromo(){
   const sel=document.getElementById('promo-agent');
   const cv=sel.value;
@@ -1624,7 +1597,6 @@ function rPromo(){
     </div>`;
 }
 
-// ── RENEWALS ─────────────────────────────────────────────────
 function rRenewals(){
   const list=[...S.renewals].sort((a,b)=>new Date(a.end)-new Date(b.end));
   document.getElementById('rn-table').innerHTML=list.length?list.map(r=>{const d=days(r.end);return`<tr>
@@ -1646,7 +1618,6 @@ async function addRenewal(){
 }
 async function delRn(id){S.renewals=S.renewals.filter(x=>x.id!==id);await apiDelete('renewals',id);rRenewals();}
 
-// ── ADMIN ─────────────────────────────────────────────────────
 let curAT='agents';
 function aTab(t){
   curAT=t;
@@ -1662,13 +1633,7 @@ function rAgents(){document.getElementById('ag-list').innerHTML=S.agents.map(a=>
   const rateHtml=rate!=null
     ?`<span style="font-size:11px;padding:1px 8px;border-radius:12px;background:var(--bg-info);color:var(--tx-info);border:.5px solid var(--bd-info);margin-left:6px">个人 ${rate.toFixed(1)}% · 公司 ${(100-rate).toFixed(1)}%</span>`
     :'';
-  return `<div class="ar">
-    <div style="flex:1">
-      <div class="an">${a.name}${rateHtml}</div>
-      <div class="as">${a.mak||''}${a.email?' · '+a.email:''}${a.tel?' · '+a.tel:''}</div>
-    </div>
-    <div style="display:flex;gap:6px"><button class="btn sm" onclick="openAgM('${a.id}')">编辑</button><button class="btn sm dan" onclick="delAgent('${a.id}')">删除</button></div>
-  </div>`;
+  return `<div class="ar"><div style="flex:1"><div class="an">${a.name}${rateHtml}</div><div class="as">${a.mak||''}${a.email?' · '+a.email:''}${a.tel?' · '+a.tel:''}</div></div><div style="display:flex;gap:6px"><button class="btn sm" onclick="openAgM('${a.id}')">编辑</button><button class="btn sm dan" onclick="delAgent('${a.id}')">删除</button></div></div>`;
 }).join('')||'<div class="empty">暂无销售人员</div>'}
 function syncAgentRate(val){
   const r=Math.min(100,Math.max(0,parseFloat(val)||0));
@@ -1721,7 +1686,6 @@ async function saveProd(){
 }
 async function delProd(id){if(S.rules.some(r=>r.pdId===id)){alert('该产品有关联规则，请先删除规则');return}if(confirm('确认删除？')){S.products=S.products.filter(x=>x.id!==id);await apiDelete('products',id);rProducts();}}
 
-// ── RULES ─────────────────────────────────────────────────────
 function rRules(){
   document.getElementById('rl-table').innerHTML=S.rules.map(r=>`<tr>
     <td><span class="tag">${r.cat}</span></td>
@@ -1758,7 +1722,6 @@ async function saveRule(){
 async function togRl(id){const r=S.rules.find(x=>x.id===id);r.active=!r.active;await apiUpdate('rules',r);rRules();}
 async function delRl(id){if(confirm('确认删除该规则？')){S.rules=S.rules.filter(x=>x.id!==id);await apiDelete('rules',id);rRules();}}
 
-// ── RULE TEST ─────────────────────────────────────────────────
 function rRuleTest(){
   const s=document.getElementById('rt-rule');
   s.innerHTML='<option value="">请选择…</option>'+S.rules.filter(r=>r.active).map(r=>`<option value="${r.id}">${r.cat} · ${pvN(r.pvId)||'通用'} / ${pdN(r.pdId)}</option>`).join('');
@@ -1780,13 +1743,10 @@ function rtCalc(id){
   document.getElementById('rt-res').textContent=isNaN(res)?'公式错误':eur(res);
 }
 
-// ── MODALS ────────────────────────────────────────────────────
 function openMo(id){document.getElementById(id).classList.add('open')}
 function closeMo(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.mo').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open')}));
 
-// ── EXCEL 导出 / 导入 ────────────────────────────────────────
-// SheetJS is loaded on demand to keep initial load fast
 let _xlsxReady = false;
 function ensureXLSX(cb){
   if(_xlsxReady){cb();return;}
@@ -1798,54 +1758,20 @@ function ensureXLSX(cb){
 
 function exportOrders(){
   ensureXLSX(()=>{
-    // Build flat rows — one row per order, splits expanded as text
-    const headers=[
-      'ID','创建日期','销售人员','供应商','产品',
-      'Versicherungsnehmer','versicherte Person',
-      'Antragsnummer','Vertragsnummer','Tarifname','Vertragsbeginn',
-      'Eingereicht per','状态','Abrechnungsdatum',
-      '佣金总额 (€)','销售员个人比例 (%)','销售员到手 (€)','GmbH留存 (€)',
-      'GmbH补贴状态','GmbH补贴%','多人分佣明细','Beschreibung'
-    ];
+    const headers=['ID','创建日期','销售人员','供应商','产品','Versicherungsnehmer','versicherte Person','Antragsnummer','Vertragsnummer','Tarifname','Vertragsbeginn','Eingereicht per','状态','Abrechnungsdatum','佣金总额 (€)','销售员个人比例 (%)','销售员到手 (€)','GmbH留存 (€)','GmbH补贴状态','GmbH补贴%','多人分佣明细','Beschreibung'];
     const rows=S.orders.map(o=>{
       const agentObj=S.agents.find(x=>x.id===o.agId);
       const rate=agentObj?.commissionRate!=null?parseFloat(agentObj.commissionRate):33;
       const total=o.snap?.result||0;
       const agentAmt=Math.round(total*(rate/100)*100)/100;
       const coAmt=Math.round((total-agentAmt)*100)/100;
-      const splitsText=o.splits&&o.splits.length>0
-        ?o.splits.map(r=>{const a=S.agents.find(x=>x.id===r.agId);return `${a?.name||r.agId} ${r.pct}%`;}).join(' / ')
-        :'单人';
-      return [
-        o.id, o.createdAt?o.createdAt.slice(0,10):'',
-        agentObj?.name||'',
-        S.providers.find(x=>x.id===o.pvId)?.name||'',
-        S.products.find(x=>x.id===o.pdId)?.name||'',
-        o.vn||o.cust||'', o.vp||'',
-        o.appl||'', o.vnum||'', o.tarif||'', o.date||'',
-        o.via||'', o.status||'', o.settledDate||'',
-        total, rate, agentAmt, coAmt,
-        o.gmbhSubsidy?(o.gmbhApproved?'已审批':'⚠ 待审批'):'',
-        o.gmbhSubsidyPct||'',
-        splitsText, o.desc||''
-      ];
+      const splitsText=o.splits&&o.splits.length>0?o.splits.map(r=>{const a=S.agents.find(x=>x.id===r.agId);return `${a?.name||r.agId} ${r.pct}%`;}).join(' / '):'单人';
+      return [o.id, o.createdAt?o.createdAt.slice(0,10):'',agentObj?.name||'',S.providers.find(x=>x.id===o.pvId)?.name||'',S.products.find(x=>x.id===o.pdId)?.name||'',o.vn||o.cust||'', o.vp||'',o.appl||'', o.vnum||'', o.tarif||'', o.date||'',o.via||'', o.status||'', o.settledDate||'',total, rate, agentAmt, coAmt,o.gmbhSubsidy?(o.gmbhApproved?'已审批':'⚠ 待审批'):'',o.gmbhSubsidyPct||'',splitsText, o.desc||''];
     });
     const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
-    // Column widths
-    ws['!cols']=[
-      {wch:12},{wch:12},{wch:18},{wch:18},{wch:14},
-      {wch:20},{wch:20},{wch:16},{wch:16},{wch:14},{wch:12},
-      {wch:14},{wch:16},{wch:14},
-      {wch:14},{wch:12},{wch:14},{wch:14},
-      {wch:30},{wch:30}
-    ];
+    ws['!cols']=[{wch:12},{wch:12},{wch:18},{wch:18},{wch:14},{wch:20},{wch:20},{wch:16},{wch:16},{wch:14},{wch:12},{wch:14},{wch:16},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:30},{wch:30}];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'订单');
-    // Add a template sheet
-    const tplHeaders=headers.slice(2); // skip ID and 创建日期 (auto-generated)
-    const tplWs=XLSX.utils.aoa_to_sheet([[...tplHeaders],['← 填写此行开始导入，删除此行说明']]);
-    tplWs['!cols']=ws['!cols'].slice(2);
-    XLSX.utils.book_append_sheet(wb,tplWs,'导入模板');
     const date=new Date().toISOString().slice(0,10);
     XLSX.writeFile(wb,`ChenCoaching_订单_${date}.xlsx`);
   });
@@ -1859,12 +1785,10 @@ function importOrders(input){
     reader.onload=async(e)=>{
       try{
         const wb=XLSX.read(e.target.result,{type:'array'});
-        // Use first sheet
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         if(rows.length<2){alert('文件为空或格式不正确');return;}
         const headers=rows[0].map(h=>String(h).trim());
-        // Detect column indices by header name
         const col=n=>headers.indexOf(n);
         const iAgent=col('销售人员'),iProv=col('供应商'),iProd=col('产品');
         const iVN=col('Versicherungsnehmer')>-1?col('Versicherungsnehmer'):col('投保人');
@@ -1872,92 +1796,51 @@ function importOrders(input){
         const iAppl=col('Antragsnummer'),iVnum=col('Vertragsnummer');
         const iTarif=col('Tarifname'),iDate=col('Vertragsbeginn');
         const iVia=col('Eingereicht per'),iStat=col('状态'),iDesc=col('Beschreibung');
-
         let imported=0,skipped=0;
         const newOrders=[];
         for(let i=1;i<rows.length;i++){
           const r=rows[i];
-          // skip blank rows or template hint row
           const rowText=r.join('').trim();
           if(!rowText||rowText.startsWith('←'))continue;
-          // find agent
           const agName=iAgent>=0?String(r[iAgent]).trim():'';
           const agObj=S.agents.find(a=>a.name.toLowerCase()===agName.toLowerCase());
-          // find provider
           const pvName=iProv>=0?String(r[iProv]).trim():'';
           const pvObj=S.providers.find(p=>p.name.toLowerCase()===pvName.toLowerCase());
-          // find product
           const pdName=iProd>=0?String(r[iProd]).trim():'';
           const pdObj=S.products.find(p=>p.name.toLowerCase()===pdName.toLowerCase());
           const vn=iVN>=0?String(r[iVN]).trim():'';
-          if(!vn){skipped++;continue;} // Versicherungsnehmer required
-          const order={
-            id:uid(),
-            agId:agObj?.id||'',
-            pvId:pvObj?.id||'',
-            pdId:pdObj?.id||'',
-            vn,
-            vp:iVP>=0?String(r[iVP]).trim():'',
-            appl:iAppl>=0?String(r[iAppl]).trim():'',
-            vnum:iVnum>=0?String(r[iVnum]).trim():'',
-            tarif:iTarif>=0?String(r[iTarif]).trim():'',
-            date:iDate>=0?String(r[iDate]).trim():'',
-            via:iVia>=0?String(r[iVia]).trim():'',
-            status:iStat>=0&&r[iStat]?String(r[iStat]).trim():'Eingereicht',
-            desc:iDesc>=0?String(r[iDesc]).trim():'',
-            splits:null,snap:null,settledDate:null,
-            createdAt:new Date().toISOString(),
-            importedFrom:file.name,
-          };
-          // try to calculate snap if rule exists
+          if(!vn){skipped++;continue;}
+          const order={id:uid(),agId:agObj?.id||'',pvId:pvObj?.id||'',pdId:pdObj?.id||'',vn,vp:iVP>=0?String(r[iVP]).trim():'',appl:iAppl>=0?String(r[iAppl]).trim():'',vnum:iVnum>=0?String(r[iVnum]).trim():'',tarif:iTarif>=0?String(r[iTarif]).trim():'',date:iDate>=0?String(r[iDate]).trim():'',via:iVia>=0?String(r[iVia]).trim():'',status:iStat>=0&&r[iStat]?String(r[iStat]).trim():'Eingereicht',desc:iDesc>=0?String(r[iDesc]).trim():'',splits:null,snap:null,settledDate:null,createdAt:new Date().toISOString(),importedFrom:file.name};
           const rule=findR(order.pvId,order.pdId);
-          if(rule&&rule.vars.length===0){
-            const av={...rule.params};
-            const res=calcFml(rule.fml,av);
-            if(!isNaN(res)) order.snap={fml:rule.fml,params:{...rule.params},inputs:{},result:Math.round(res*100)/100,ruleId:rule.id,at:new Date().toISOString()};
-          }
-          newOrders.push(order);
-          imported++;
+          if(rule&&rule.vars.length===0){const av={...rule.params};const res=calcFml(rule.fml,av);if(!isNaN(res)) order.snap={fml:rule.fml,params:{...rule.params},inputs:{},result:Math.round(res*100)/100,ruleId:rule.id,at:new Date().toISOString()};}
+          newOrders.push(order);imported++;
         }
         if(newOrders.length===0){alert(`未找到可导入的数据行。${skipped>0?`\n${skipped} 行因缺少投保人姓名被跳过。`:''}`);input.value='';return;}
-        // confirm
         const ok=confirm(`准备导入 ${imported} 条订单${skipped>0?`（${skipped} 行因缺少必填字段跳过）`:''} 。\n\n确认导入？`);
         if(!ok){input.value='';return;}
-        for(const order of newOrders){
-          S.orders.push(order);
-          await apiWrite('orders',order);
-        }
+        for(const order of newOrders){S.orders.push(order);await apiWrite('orders',order);}
         input.value='';
         alert(`✓ 成功导入 ${imported} 条订单${skipped>0?`，${skipped} 行已跳过`:''} 。`);
         nav('orders');
-      }catch(err){
-        alert('导入失败：'+err.message);
-        input.value='';
-      }
+      }catch(err){alert('导入失败：'+err.message);input.value='';}
     };
     reader.readAsArrayBuffer(file);
   });
 }
 
 // ══════════════════════════════════════════════════════════════
-//  AUTH & PERMISSION SYSTEM
+//  AUTH
 // ══════════════════════════════════════════════════════════════
-
-// Current session
-let CU = null; // { username, name, role, agentId, permissions, token }
-
+let CU = null;
 const ROLE_LABELS = { admin:'超级管理员', manager:'管理层', agent:'销售员' };
 
-// ── Login / Logout ────────────────────────────────────────────
 async function doLogin(){
   const username = document.getElementById('li-user').value.trim();
   const password = document.getElementById('li-pass').value;
   if(!username||!password){ showLoginErr('请填写用户名和密码'); return; }
   const btn = document.getElementById('li-btn');
   btn.textContent='登录中…'; btn.disabled=true;
-
   if(!apiConfigured()){
-    // 本地模式：用内置账号演示
     CU = {username:'demo',name:'Demo User',role:'admin',agentId:'',token:'demo',
       permissions:{canApprove:true,canManageConfig:true,seeAllOrders:true,canSettle:true}};
     onLoginSuccess();
@@ -1965,15 +1848,13 @@ async function doLogin(){
     return;
   }
   try {
-    let res;
-    // 调用 Railway 后端登录
     const r = await fetch(API_URL + '/login', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({username, password}),
       signal: AbortSignal.timeout(15000),
     });
-    res = await r.json();
+    const res = await r.json();
     if(res.error){ showLoginErr(res.error); btn.textContent='登录'; btn.disabled=false; return; }
     CU = {...res.user, token: res.token};
     sessionStorage.setItem('cc_session', JSON.stringify({
@@ -1994,26 +1875,22 @@ function showLoginErr(msg){
 }
 
 function onLoginSuccess(){
-  // hide login, show app
   document.getElementById('login-page').classList.remove('show');
   document.getElementById('main-app').style.display='flex';
-  // update user bar
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('ub-name').textContent = CU.name;
   document.getElementById('ub-role').textContent = ROLE_LABELS[CU.role]||CU.role;
-  // show/hide admin nav items
   const isAdmin = CU.permissions?.canManageConfig;
   document.getElementById('nav-audit').style.display = isAdmin?'flex':'none';
   document.getElementById('nav-users').style.display = isAdmin?'flex':'none';
-  // hide config pages from non-admins
   applyPermissionsToNav();
   addSyncBtn();
   loadAll();
 }
 
+// ✅ 修改5：强制所有人都能看到「我的收入」
 function applyPermissionsToNav(){
   const isAdmin = CU?.permissions?.canManageConfig;
-  // hide backend config nav for non-admins
   document.querySelectorAll('.nav-sec').forEach(el=>{
     if(el.textContent.trim()==='后台配置' && !isAdmin) el.style.display='none';
   });
@@ -2021,7 +1898,7 @@ function applyPermissionsToNav(){
     const el = document.querySelector(`.nv[onclick="nav('${p}')"]`);
     if(el && !isAdmin) el.style.display='none';
   });
-  // income visible to all
+  // ✅ 所有角色都能看到收入页面
   const incEl = document.getElementById('nav-income');
   if(incEl) incEl.style.display='flex';
 }
@@ -2036,144 +1913,20 @@ function doLogout(){
   document.getElementById('login-err').classList.remove('show');
 }
 
-// ── API with auth ─────────────────────────────────────────────
 async function apiPostAuth(body){
   if(CU) { body.sessionToken = CU.token; body.username = CU.username; }
   return _rawPost(body);
 }
 
-// Override apiWrite/Update/Delete to include auth
-const _origApiWrite = apiWrite;
-async function apiWrite(sheet, data){
-  if(!apiConfigured()){localSave();return;}
-  _pendingWrites++;setStatus('saving');
-  try{
-    await apiPostAuth({action:'write',sheet,data});
-    _pendingWrites--;if(_pendingWrites===0)setStatus('ok');
-  }catch(e){
-    _pendingWrites--;enqueueRetry('write',sheet,data);setStatus('error');scheduleRetry();
-  }
-}
-const _origApiUpdate = apiUpdate;
-async function apiUpdate(sheet, data){
-  if(!apiConfigured()){localSave();return;}
-  _pendingWrites++;setStatus('saving');
-  try{
-    await apiPostAuth({action:'update',sheet,data});
-    _pendingWrites--;if(_pendingWrites===0)setStatus('ok');
-  }catch(e){
-    _pendingWrites--;enqueueRetry('update',sheet,data);setStatus('error');scheduleRetry();
-  }
-}
-const _origApiDelete = apiDelete;
-async function apiDelete(sheet, id){
-  if(!apiConfigured()){localSave();return;}
-  _pendingWrites++;setStatus('saving');
-  try{
-    await apiPostAuth({action:'delete',sheet,data:{id}});
-    _pendingWrites--;if(_pendingWrites===0)setStatus('ok');
-  }catch(e){
-    _pendingWrites--;enqueueRetry('delete',sheet,{id});setStatus('error');scheduleRetry();
-  }
-}
-
-// ── Permission guards ─────────────────────────────────────────
 function canSettle(){ return CU?.permissions?.canSettle; }
 function canApprove(){ return CU?.permissions?.canApprove; }
 function canConfig(){ return CU?.permissions?.canManageConfig; }
 function seeAllOrders(){ return CU?.permissions?.seeAllOrders; }
 
-// ── Patch rOrders to filter by agent for non-admin ────────────
-const _origROrders = rOrders;
-function rOrders(){
-  const fa=document.getElementById('fl-agent');
-  fa.innerHTML='<option value="">所有销售员</option>'+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
-  // non-admin: force filter to own orders only
-  if(!seeAllOrders() && CU?.agentId){
-    fa.value = CU.agentId;
-    fa.disabled = true;
-  } else {
-    fa.disabled = false;
-  }
-  const aF=fa.value, sF=document.getElementById('fl-stat').value;
-  const subF=document.getElementById('fl-subsidy')?.value;
-  const list=S.orders.filter(o=>
-    (aF?o.agId===aF:true)&&
-    (sF?o.status===sF:true)&&
-    (subF==='pending'?(o.gmbhSubsidy&&!o.gmbhApproved):subF==='all_subsidy'?o.gmbhSubsidy:true)
-  );
-  // hide settle button for agents
-  const showSettle = canSettle();
-  document.getElementById('ord-table').innerHTML=list.length?[...list].reverse().map(o=>{
-    const subsidyTag=o.gmbhSubsidy
-      ?(o.gmbhApproved
-        ?` <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:var(--bg-success);color:var(--tx-success);border:.5px solid var(--bd-success)">✓ GmbH已审批</span>`
-        :` <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:var(--bg-warn);color:var(--tx-warn);border:.5px solid var(--bd-warn)">⚠ 待Dehua审批</span>`)
-      :'';
-    const splitTag=o.splits&&o.splits.length>0
-      ?` <span class="tag" title="${o.splits.map(r=>(r.isExternal?r.extName+'（外部）':agN(r.agId))+' '+r.pct+'%').join(' / ')}">+${o.splits.length-1}人</span>`
-      :'';
-    return `<tr${o.gmbhSubsidy?' style="background:rgba(234,179,8,.04)"':''}>
-      <td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
-      <td>${agN(o.agId)}${splitTag}${subsidyTag}</td>
-      <td>${o.vn||o.cust||'—'}</td>
-      <td>${o.vp?`<span style="font-size:11px;color:var(--tx2)">${o.vp}</span>`:'—'}</td>
-      <td>${pvN(o.pvId)}</td><td>${pdN(o.pdId)}</td>
-      <td class="mn">${o.appl||'—'}</td><td>${o.date||'—'}</td>
-      <td style="font-weight:500">${eur(o.snap?.result)}</td>
-      <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-      <td><div style="display:flex;gap:4px">
-        <button class="btn sm" onclick="viewOrd('${o.id}')">快照</button>
-        ${showSettle?`<button class="btn sm" onclick="editOrd('${o.id}')">编辑</button>`:''}
-      </div></td>
-    </tr>`;
-  }).join(''):'<tr><td colspan="11" class="empty">暂无订单</td></tr>';
-}
-
-// ── Patch rNewOrd to pre-select own agent (no override, merged directly) ──
-// The pre-select logic is now handled inside the nav() pageMap call
-
-// ── Patch rSettle to show settle button only for managers+ ────
-const _origRSettle = rSettle;
-function rSettle(){
-  document.getElementById('stl-table').innerHTML=S.orders.length?[...S.orders].reverse().map(o=>
-    `<tr><td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
-    <td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td>
-    <td>${eur(o.snap?.result)}</td><td>${o.settledDate||'—'}</td>
-    <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-    <td>${(o.status!=='已结算'&&canSettle())?`<button class="btn sm pri" onclick="qSettle('${o.id}')">结算</button>`:'—'}</td></tr>`
-  ).join(''):'<tr><td colspan="8" class="empty">暂无订单</td></tr>';
-}
-
-// ── Patch editOrd: approve button only for admin ──────────────
-const _origEditOrd = editOrd;
-function editOrd(id){
-  const o=S.orders.find(x=>x.id===id);S.eId.order=id;
-  document.getElementById('eom-stat').value=o.status;
-  document.getElementById('eom-date').value=o.settledDate||'';
-  document.getElementById('eom-desc').value=o.desc||'';
-  document.getElementById('eom-del').onclick=async()=>{
-    if(confirm('确认删除？')){S.orders=S.orders.filter(x=>x.id!==id);await apiDelete('orders',id);closeMo('mo-edit-ord');rOrders();}
-  };
-  const approveBtn=document.getElementById('eom-approve-btn');
-  if(o.gmbhSubsidy&&!o.gmbhApproved&&canApprove()){
-    approveBtn.style.display='block';
-    approveBtn.textContent=`✓ Dehua 审批通过（GmbH补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}%）`;
-    approveBtn.onclick=async()=>{
-      await doApprove(id, o);
-      closeMo('mo-edit-ord');rOrders();
-    };
-  } else {
-    approveBtn.style.display='none';
-  }
-  openMo('mo-edit-ord');
-}
-
-// ── Approval with audit log ───────────────────────────────────
 async function doApprove(orderId, orderObj){
   if(!canApprove()){ alert('你没有审批权限'); return; }
   const note = prompt('审批备注（可选，直接点确定跳过）：','') ?? '';
-  if(note === null) return; // cancelled
+  if(note === null) return;
   const o = S.orders.find(x=>x.id===orderId);
   o.gmbhApproved = true;
   o.gmbhApprovedBy = CU.name;
@@ -2181,16 +1934,16 @@ async function doApprove(orderId, orderObj){
   await apiUpdate('orders', o);
   if(apiConfigured()){
     try{
-      await apiPostAuth({action:'approve', orderId, note, action:'approve'});
-    }catch(e){ console.warn('audit log write failed', e); }
+      await fetch(API_URL+'/approve',{method:'POST',
+        headers:{'Content-Type':'application/json','X-Token':CU?.token||''},
+        body:JSON.stringify({orderId:o.id,note,username:CU.username})});
+    }catch(e){ console.warn('audit log failed', e); }
   }
-  // local audit log
   S._auditLog = S._auditLog||[];
   S._auditLog.unshift({id:'log'+Date.now(),type:'approval',orderId,action:'approve',
     operator:CU.name,operatorUsername:CU.username,note,timestamp:new Date().toISOString()});
 }
 
-// ── Audit log page ────────────────────────────────────────────
 async function loadAuditLog(){
   document.getElementById('audit-list').innerHTML='<div class="empty">加载中…</div>';
   let logs = S._auditLog||[];
@@ -2204,19 +1957,10 @@ async function loadAuditLog(){
   document.getElementById('audit-list').innerHTML=[...logs].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).map(l=>{
     const order = S.orders.find(o=>o.id===l.orderId);
     const orderInfo = order ? `${agN(order.agId)} · ${order.vn||order.cust||'—'} · ${pvN(order.pvId)} ${pdN(order.pdId)}` : l.orderId;
-    return `<div class="audit-row">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="bdg g" style="font-size:11px">✓ 审批通过</span>
-        <strong style="font-size:13px">${l.operator}</strong>
-        <span style="font-size:12px;color:var(--tx2)">${orderInfo}</span>
-      </div>
-      ${l.note?`<div style="font-size:12px;color:var(--tx2);margin-top:4px">备注：${l.note}</div>`:''}
-      <div class="at">${new Date(l.timestamp).toLocaleString('de-DE')}</div>
-    </div>`;
+    return `<div class="audit-row"><div style="display:flex;align-items:center;gap:8px"><span class="bdg g" style="font-size:11px">✓ 审批通过</span><strong style="font-size:13px">${l.operator}</strong><span style="font-size:12px;color:var(--tx2)">${orderInfo}</span></div>${l.note?`<div style="font-size:12px;color:var(--tx2);margin-top:4px">备注：${l.note}</div>`:''}<div class="at">${new Date(l.timestamp).toLocaleString('de-DE')}</div></div>`;
   }).join('');
 }
 
-// ── User management (admin only) ──────────────────────────────
 async function rUsers(){
   if(!apiConfigured()){
     document.getElementById('users-table').innerHTML='<tr><td colspan="6" class="empty">需配置 API 才能管理账号</td></tr>';return;
@@ -2255,15 +1999,7 @@ async function saveUser(){
   const pass  = document.getElementById('um-password').value;
   const name  = document.getElementById('um-name').value.trim();
   if(!S._editingUserId && (!uname||!pass||!name)){ alert('请填写用户名、密码和姓名'); return; }
-  const data = {
-    id: S._editingUserId||('u'+Date.now()),
-    username: uname,
-    password: pass,
-    name,
-    role: document.getElementById('um-role').value,
-    agentId: document.getElementById('um-agentid').value,
-    active: document.getElementById('um-active').value==='true',
-  };
+  const data = {id: S._editingUserId||('u'+Date.now()),username: uname,password: pass,name,role: document.getElementById('um-role').value,agentId: document.getElementById('um-agentid').value,active: document.getElementById('um-active').value==='true'};
   try{
     if(S._editingUserId){ await apiPostAuth({action:'updateUser', data}); }
     else { await apiPostAuth({action:'createUser', data}); }
@@ -2277,48 +2013,11 @@ async function deleteUser(id){
   rUsers();
 }
 
-// ── Extend nav() to handle new pages ─────────────────────────
-const _origNav = nav;
-function nav(p){
-  document.querySelectorAll('.nv').forEach(el=>el.classList.remove('on'));
-  document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
-  document.querySelector(`.nv[onclick="nav('${p}')"]`)?.classList.add('on');
-  document.getElementById('page-'+p)?.classList.add('on');
-  const pageMap = {
-    dashboard:rDash, orders:rOrders, 'new-order':rNewOrd,
-    rules:rRules, 'rule-test':rRuleTest, promotion:rPromo,
-    settlement:rSettle, renewals:rRenewals, admin:rAdmin,
-    audit:loadAuditLog, users:rUsers, income:rIncome,
-  };
-  pageMap[p]?.();
-}
-
-// ── Session restore on page load ──────────────────────────────
-function tryRestoreSession(){
-  const saved = sessionStorage.getItem('cc_session');
-  if(!saved) return false;
-  try{
-    const data = JSON.parse(saved);
-    // Restore full user info including role and permissions
-    CU = {
-      username: data.username,
-      token: data.token,
-      name: data.name || data.username,
-      role: data.role || 'agent',
-      agentId: data.agentId || '',
-      permissions: data.permissions || {canApprove:false,canManageConfig:false,seeAllOrders:false,canSettle:false}
-    };
-    return true;
-  }catch(e){ return false; }
-}
-
-// ── 我的收入 ───────────────────────────────────────────────────
 function incPeriodChange(){
   const p=document.getElementById('inc-period').value;
   const cd=document.getElementById('inc-custom');
   if(p==='custom'){
     cd.style.display='flex';
-    // default: this month
     const now=new Date();
     const y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0');
     document.getElementById('inc-from').value=`${y}-${m}-01`;
@@ -2348,7 +2047,6 @@ function incDateRange(){
 
 function rIncome(){
   const agSel=document.getElementById('inc-agent');
-  // admin/manager can select agent, others locked to own
   const isAdmin=seeAllOrders();
   agSel.style.display=isAdmin?'block':'none';
   if(isAdmin && agSel.innerHTML===''){
@@ -2357,22 +2055,16 @@ function rIncome(){
   const filterAgId=isAdmin?agSel.value:(CU?.agentId||'');
   const [from,to]=incDateRange();
   const fromD=new Date(from),toD=new Date(to+'T23:59:59');
-
-  // filter orders: 只统计「已结算」
   const filterOrders=(fromDate, toDate)=>S.orders.filter(o=>{
     const d=new Date(o.settledDate||o.date||o.createdAt||'2000-01-01');
     const agMatch=filterAgId?o.agId===filterAgId:true;
     return agMatch && o.status==='已结算' && d>=fromDate && d<=toDate;
   });
-
   const orders=filterOrders(fromD, toD);
-
-  // 计算上期同样时长的对比数据
   const periodLen=toD-fromD;
   const prevFrom=new Date(fromD-periodLen);
   const prevTo=new Date(fromD-1);
   const prevOrders=filterOrders(prevFrom, prevTo);
-
   const calcPersonal=(o)=>{
     const agObj=S.agents.find(x=>x.id===o.agId);
     const rate=agObj?.commissionRate!=null?parseFloat(agObj.commissionRate):33;
@@ -2384,60 +2076,55 @@ function rIncome(){
     }
     return {total, rate, personalAmt:total*(rate/100)};
   };
-
   const rows=orders.map(o=>({o,...calcPersonal(o)}));
   const prevRows=prevOrders.map(o=>({o,...calcPersonal(o)}));
-
   const totalOrders=rows.length;
   const totalRevenue=rows.reduce((s,r)=>s+r.total,0);
   const totalPersonal=rows.reduce((s,r)=>s+r.personalAmt,0);
   const prevOrders2=prevRows.length;
   const prevRevenue=prevRows.reduce((s,r)=>s+r.total,0);
   const prevPersonal=prevRows.reduce((s,r)=>s+r.personalAmt,0);
-
   const cmpArrow=(cur,prev)=>{
     if(prev===0) return '';
     const pct=((cur-prev)/prev*100).toFixed(1);
     const up=cur>=prev;
     return `<span style="font-size:12px;color:${up?'var(--tx-success)':'var(--tx-danger)'}">${up?'▲':'▼'} ${Math.abs(pct)}% 较上期</span>`;
   };
-
-  // stats cards
   document.getElementById('inc-stats').innerHTML=`
-    <div class="stat-card"><div class="sc">已结算订单数</div><div class="sv">${totalOrders}</div><div style="margin-top:4px">${cmpArrow(totalOrders,prevOrders2)}</div></div>
-    <div class="stat-card"><div class="sc">订单总佣金（业绩）</div><div class="sv" style="color:var(--tx-info)">${eur(totalRevenue)}</div><div style="margin-top:4px">${cmpArrow(totalRevenue,prevRevenue)}</div></div>
-    <div class="stat-card"><div class="sc">个人到手金额</div><div class="sv" style="color:var(--tx-success)">${eur(totalPersonal)}</div><div style="margin-top:4px">${cmpArrow(totalPersonal,prevPersonal)}</div></div>`;
-
-  // table
+    <div class="sc"><div class="lbl">已结算订单数</div><div class="val">${totalOrders}</div><div style="margin-top:4px">${cmpArrow(totalOrders,prevOrders2)}</div></div>
+    <div class="sc"><div class="lbl">订单总佣金（业绩）</div><div class="val" style="color:var(--tx-info)">${eur(totalRevenue)}</div><div style="margin-top:4px">${cmpArrow(totalRevenue,prevRevenue)}</div></div>
+    <div class="sc"><div class="lbl">个人到手金额</div><div class="val" style="color:var(--tx-success)">${eur(totalPersonal)}</div><div style="margin-top:4px">${cmpArrow(totalPersonal,prevPersonal)}</div></div>`;
   document.getElementById('inc-table').innerHTML=rows.length?[...rows].sort((a,b)=>new Date(b.o.date)-new Date(a.o.date)).map(({o,total,rate,personalAmt})=>`<tr>
-    <td>${o.date||'—'}</td>
-    <td>${o.vn||o.cust||'—'}</td>
-    <td>${pdN(o.pdId)}</td>
+    <td>${o.date||'—'}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td>
     <td style="font-weight:500">${eur(total)}</td>
     <td style="color:var(--tx-info)">${rate.toFixed(1)}%</td>
     <td style="font-weight:500;color:var(--tx-success)">${eur(personalAmt)}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-  </tr>`).join(''):'<tr><td colspan="7" class="empty">该时间段暂无订单</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="7" class="empty">该时间段暂无已结算订单</td></tr>';
 }
 
-// ── INIT ──────────────────────────────────────────────────────
+function tryRestoreSession(){
+  const saved = sessionStorage.getItem('cc_session');
+  if(!saved) return false;
+  try{
+    const data = JSON.parse(saved);
+    CU = {
+      username: data.username,
+      token: data.token,
+      name: data.name || data.username,
+      role: data.role || 'agent',
+      agentId: data.agentId || '',
+      permissions: data.permissions || {canApprove:false,canManageConfig:false,seeAllOrders:false,canSettle:false}
+    };
+    return true;
+  }catch(e){ return false; }
+}
+
 (async function init(){
   const restored = tryRestoreSession();
-  if(restored && apiConfigured()){
-    // Verify token with server
-    try{
-      const {username, token} = CU;
-      const check = await _rawPost({action:'login', sessionToken:token, username, _check:true});
-      // If server returns user, great. If not, show login.
-      // Note: for simplicity, if token exists in sessionStorage we trust it
-      // A full implementation would verify server-side
-    }catch(e){}
-  }
   if(restored){
-    // restore user display from session (role info lost on refresh - re-fetch from loadAll)
     onLoginSuccess();
   } else {
-    // show login page
     document.getElementById('login-page').classList.add('show');
     document.getElementById('main-app').style.display='none';
   }

@@ -433,13 +433,13 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
   <div class="br"><button class="btn" onclick="closeMo('mo-prod')">取消</button><button class="btn pri" onclick="saveProd()">保存</button></div>
 </div></div>
 
-<!-- ✅ 修改1：编辑订单弹窗 - 增加完整字段编辑支持 -->
-<div class="mo" id="mo-edit-ord"><div class="mbox" style="width:560px">
+<!-- 编辑订单弹窗 - 含佣金重新计算 -->
+<div class="mo" id="mo-edit-ord"><div class="mbox" style="width:600px">
   <div class="mt">编辑订单</div>
   <div class="fg">
     <div class="ff"><label>销售人员 Berater</label><select id="eom-agent"></select></div>
-    <div class="ff"><label>供应商 Anbieter</label><select id="eom-prov"></select></div>
-    <div class="ff"><label>产品 Produkt</label><select id="eom-prod"></select></div>
+    <div class="ff"><label>供应商 Anbieter</label><select id="eom-prov" onchange="eomProdChange()"></select></div>
+    <div class="ff"><label>产品 Produkt</label><select id="eom-prod" onchange="eomProdChange()"></select></div>
     <div class="ff"><label>Versicherungsnehmer（投保人）</label><input id="eom-vn" placeholder="Vorname Name"/></div>
     <div class="ff"><label>versicherte Person（被保险人）</label><input id="eom-vp" placeholder="如与投保人相同可留空"/></div>
     <div class="ff"><label>Antragsnummer</label><input id="eom-appl" placeholder="AN-2026-"/></div>
@@ -456,7 +456,29 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
     </div>
     <div class="ff"><label>Abrechnungsdatum</label><input id="eom-date" type="date"/></div>
   </div>
-  <div class="ff" style="margin-bottom:12px"><label>Beschreibung / Notizen</label><textarea id="eom-desc" rows="3"></textarea></div>
+  <div class="ff" style="margin-bottom:12px"><label>Beschreibung / Notizen</label><textarea id="eom-desc" rows="2"></textarea></div>
+
+  <!-- 佣金重新计算区域 -->
+  <div id="eom-fml-sec" style="display:none;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:500">重新计算佣金</span>
+      <span style="font-size:11px;color:var(--tx2)">修改下方数值，保存时自动更新快照</span>
+    </div>
+    <div class="fb">
+      <div class="fc" id="eom-fml-code"></div>
+      <div id="eom-aparams" style="margin-bottom:8px"></div>
+      <div id="eom-dynf" class="fg" style="margin-bottom:8px"></div>
+      <div class="rb">
+        <div class="rl">重新计算结果</div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div class="rv" id="eom-res">€ 0,00</div>
+          <div id="eom-res-diff" style="font-size:12px;color:var(--tx2)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="eom-norule" style="display:none;margin-bottom:12px" class="wb">该产品暂无佣金规则，无法重新计算。</div>
+
   <div id="eom-approve-btn" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);font-size:13px;color:var(--tx-success);cursor:pointer;font-weight:500;text-align:center"></div>
   <div class="br">
     <button class="btn" onclick="closeMo('mo-edit-ord')">取消</button>
@@ -1459,14 +1481,13 @@ async function settleFromMo(){
   closeMo('mo-order');rOrders();
 }
 
-// ✅ 修改3：editOrd 支持完整字段编辑，agent 不能删除订单
+// editOrd：支持完整字段编辑 + 佣金重新计算
 function editOrd(id){
   const o=S.orders.find(x=>x.id===id);S.eId.order=id;
 
   // 填充销售员下拉
   const agSel=document.getElementById('eom-agent');
   agSel.innerHTML=S.agents.map(a=>`<option value="${a.id}"${a.id===o.agId?' selected':''}>${a.name}</option>`).join('');
-  // agent 角色不能改主销售员
   agSel.disabled = !seeAllOrders();
 
   // 填充供应商下拉
@@ -1489,7 +1510,10 @@ function editOrd(id){
   document.getElementById('eom-date').value = o.settledDate||'';
   document.getElementById('eom-desc').value = o.desc||'';
 
-  // ✅ agent 不能删除订单，只有 manager/admin 可以
+  // 加载佣金计算区域（用已有 pvId/pdId）
+  eomLoadRule(o.pvId, o.pdId, o.snap?.inputs||{}, o.snap?.result||null);
+
+  // agent 不能删除
   const delBtn=document.getElementById('eom-del');
   if(canSettle()){
     delBtn.style.display='block';
@@ -1504,7 +1528,7 @@ function editOrd(id){
     delBtn.style.display='none';
   }
 
-  // GmbH 审批按钮（只有 admin 才能看到）
+  // GmbH 审批按钮
   const approveBtn=document.getElementById('eom-approve-btn');
   if(o.gmbhSubsidy&&!o.gmbhApproved&&canApprove()){
     approveBtn.style.display='block';
@@ -1512,10 +1536,7 @@ function editOrd(id){
     approveBtn.style.color='var(--tx-success)';
     approveBtn.style.cursor='pointer';
     approveBtn.textContent=`✓ Dehua 审批通过（GmbH补贴 ${o.gmbhSubsidyPct?.toFixed(1)||'?'}%）`;
-    approveBtn.onclick=async()=>{
-      await doApprove(id, o);
-      closeMo('mo-edit-ord');rOrders();
-    };
+    approveBtn.onclick=async()=>{ await doApprove(id,o); closeMo('mo-edit-ord');rOrders(); };
   } else if(o.gmbhSubsidy&&o.gmbhApproved){
     approveBtn.style.display='block';
     approveBtn.style.background='var(--bg2)';
@@ -1529,11 +1550,73 @@ function editOrd(id){
   openMo('mo-edit-ord');
 }
 
-// ✅ 修改4：saveOrdEdit 保存所有字段
+// 当供应商或产品变更时重新加载规则
+function eomProdChange(){
+  const pvId=document.getElementById('eom-prov').value;
+  const pdId=document.getElementById('eom-prod').value;
+  eomLoadRule(pvId, pdId, {}, null);
+}
+
+// 加载规则到编辑弹窗的计算区域
+function eomLoadRule(pvId, pdId, existingInputs, oldResult){
+  const fmlSec=document.getElementById('eom-fml-sec');
+  const noRule=document.getElementById('eom-norule');
+  if(!pvId||!pdId){ fmlSec.style.display='none'; noRule.style.display='none'; return; }
+  const rule=findR(pvId, pdId);
+  if(!rule){
+    fmlSec.style.display='none';
+    noRule.style.display='block';
+    return;
+  }
+  noRule.style.display='none';
+  fmlSec.style.display='block';
+  document.getElementById('eom-fml-code').textContent=rule.fml;
+  document.getElementById('eom-aparams').innerHTML=Object.entries(rule.params||{}).map(([k,v])=>`<span class="pill">自动注入: ${k} = ${v}</span>`).join('');
+  if(!rule.vars||rule.vars.length===0){
+    document.getElementById('eom-dynf').innerHTML='<div class="ib" style="margin:0">该规则使用固定参数，无需填写变量。</div>';
+  } else {
+    document.getElementById('eom-dynf').innerHTML=rule.vars.map((v,i)=>`
+      <div class="ff">
+        <label>${rule.lbls?.[i]||v} <span style="color:#e24b4a">*</span></label>
+        <input type="number" step="0.01" placeholder="0,00" data-var="${v}"
+          value="${existingInputs[v]!=null?existingInputs[v]:''}"
+          oninput="eomCalc('${rule.id}',${JSON.stringify(oldResult)})"/>
+      </div>`).join('');
+  }
+  eomCalc(rule.id, oldResult);
+}
+
+// 编辑弹窗中实时计算佣金
+function eomCalc(ruleId, oldResult){
+  const rule=S.rules.find(x=>x.id===ruleId);
+  if(!rule) return;
+  const av={...rule.params};
+  document.querySelectorAll('#eom-dynf input').forEach(i=>{av[i.dataset.var]=parseFloat(i.value.replace(',','.'))||0});
+  const res=calcFml(rule.fml,av);
+  const resEl=document.getElementById('eom-res');
+  const diffEl=document.getElementById('eom-res-diff');
+  if(isNaN(res)){
+    resEl.textContent='公式错误';
+    diffEl.textContent='';
+    return;
+  }
+  resEl.textContent=eur(res);
+  // 显示与原来的差值
+  if(oldResult!=null&&!isNaN(oldResult)){
+    const diff=res-oldResult;
+    if(Math.abs(diff)>0.005){
+      const sign=diff>0?'+':'';
+      diffEl.innerHTML=`原值 ${eur(oldResult)} <span style="color:${diff>0?'var(--tx-success)':'var(--tx-danger)'};font-weight:500">${sign}${eur(diff)}</span>`;
+    } else {
+      diffEl.textContent='与原值相同';
+    }
+  }
+}
+
+// saveOrdEdit：保存所有字段，如有新计算结果则更新快照
 async function saveOrdEdit(){
   const o=S.orders.find(x=>x.id===S.eId.order);
   if(!o) return;
-  // 只有 manager/admin 可以改销售员
   if(seeAllOrders()){
     o.agId = document.getElementById('eom-agent').value || o.agId;
     o.pvId = document.getElementById('eom-prov').value || o.pvId;
@@ -1549,10 +1632,51 @@ async function saveOrdEdit(){
   o.status = document.getElementById('eom-stat').value;
   o.settledDate = document.getElementById('eom-date').value || null;
   o.desc = document.getElementById('eom-desc').value;
+
+  // 如果佣金计算区域可见，重新计算并更新快照
+  const fmlSec=document.getElementById('eom-fml-sec');
+  if(fmlSec.style.display!=='none'){
+    const rule=findR(o.pvId, o.pdId);
+    if(rule){
+      const inputs={};
+      let hasVars=true;
+      document.querySelectorAll('#eom-dynf input').forEach(i=>{
+        const v=parseFloat(i.value.replace(',','.'));
+        if(isNaN(v)) hasVars=false;
+        inputs[i.dataset.var]=v||0;
+      });
+      if(hasVars){
+        const av={...rule.params,...inputs};
+        const res=calcFml(rule.fml,av);
+        if(!isNaN(res)){
+          const total=Math.round(res*100)/100;
+          const agId=o.agId;
+          const rate=getAgentRate(agId);
+          let breakdown=null;
+          if(!o.splits){
+            breakdown=[
+              {agId,agName:S.agents.find(x=>x.id===agId)?.name||'',directPct:rate,amount:Math.round(total*(rate/100)*100)/100},
+              {agId:'gmbh',agName:'GmbH',directPct:100-rate,amount:Math.round(total*(1-rate/100)*100)/100,isGmbh:true},
+            ];
+          } else {
+            const splitSum=o.splits.reduce((s,r)=>s+r.pct,0);
+            const gmbhPct=Math.max(0,100-splitSum);
+            breakdown=o.splits.map(r=>({
+              agId:r.agId||'ext',agName:r.isExternal?(r.extName+'（外部）'):(S.agents.find(x=>x.id===r.agId)?.name||''),
+              directPct:r.pct,amount:Math.round(total*(r.pct/100)*100)/100,isExternal:r.isExternal||false
+            }));
+            breakdown.push({agId:'gmbh',agName:'GmbH',directPct:gmbhPct,amount:Math.round(total*(gmbhPct/100)*100)/100,isGmbh:true});
+          }
+          o.snap={fml:rule.fml,params:{...rule.params},inputs,result:total,breakdown,ruleId:rule.id,at:new Date().toISOString()};
+        }
+      }
+    }
+  }
+
   await apiUpdate('orders', o);
   closeMo('mo-edit-ord');
   rOrders();
-  alert('✓ 订单已更新');
+  alert('✓ 订单已更新' + (o.snap?' · 佣金快照已重新锁定: '+eur(o.snap.result):''));
 }
 
 function rSettle(){

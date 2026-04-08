@@ -1334,6 +1334,10 @@ function updateBreakdown(total){
   const rate=getAgentRate(agId);
   let rows='';
   let gmbhPct, gmbhAmt, subsidyPct=0;
+
+  // ── 计算上级分成（公司额外支付）──
+  const supRows=getSupRows(agId, total);
+
   if(!isMulti){
     const agentAmt=total*(rate/100);
     gmbhPct=100-rate;
@@ -1349,8 +1353,8 @@ function updateBreakdown(total){
         const name=(row.querySelector('.split-extname')?.value||'').trim();
         return name?{name:name+' （外部）',pct,isExt:true}:null;
       } else {
-        const agId=row.querySelector('.split-agent')?.value||'';
-        return agId?{name:S.agents.find(x=>x.id===agId)?.name||'—',pct,isExt:false}:null;
+        const aId=row.querySelector('.split-agent')?.value||'';
+        return aId?{name:S.agents.find(x=>x.id===aId)?.name||'—',pct,isExt:false,agId:aId}:null;
       }
     }).filter(Boolean);
     const splitTotal=splits.reduce((s,r)=>s+r.pct,0);
@@ -1363,17 +1367,50 @@ function updateBreakdown(total){
       return `<tr><td>${nameCell}</td><td style="color:var(--tx-info)">${r.pct.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(amt)}</td></tr>`;
     }).join('');
   }
+
   if(subsidyPct>0){
     const normalGmbhPct=(100-rate);
     const normalGmbhAmt=total*(normalGmbhPct/100);
     const subsidyAmt=Math.round(total*(subsidyPct/100)*100)/100;
     rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（正常留存）</td><td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(normalGmbhAmt)}</td></tr>
-    <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(subsidyAmt)}</td></tr>`;
+    <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(total*(subsidyPct/100))}</td></tr>`;
   } else {
     rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
   }
+
+  // 上级分成行（绿色，公司额外支付）
+  const supHtml=supRows.map(s=>
+    `<tr style="background:rgba(21,128,61,.04)">
+      <td style="color:var(--tx-success)">🏆 ${s.name}（上级）</td>
+      <td style="color:var(--tx-success)">${s.rate.toFixed(1)}%</td>
+      <td style="font-weight:500;color:var(--tx-success)">${eur(s.amount)}<span style="font-size:10px;margin-left:4px;color:var(--tx3)">公司额外支付</span></td>
+    </tr>`).join('');
+
   const subsidyBanner=subsidyPct>0?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH 额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`:'';
-  document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const supBanner=supRows.length>0?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-success);margin-bottom:6px">🏆 上级分成将由公司额外支付，不影响销售员到手金额</div>`:'';
+
+  document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}${supBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}${supHtml}</tbody></table>`;
+}
+
+// 获取某销售员的所有上级分成行（支持多层级）
+function getSupRows(agId, total){
+  const rows=[];
+  let current=S.agents.find(x=>x.id===agId);
+  const visited=new Set();
+  while(current){
+    if(visited.has(current.id)) break; // 防循环
+    visited.add(current.id);
+    const supId=current.supervisorId||'';
+    if(!supId) break;
+    const sup=S.agents.find(x=>x.id===supId);
+    if(!sup) break;
+    const supRate=parseFloat(current.supervisorRate||0);
+    if(supRate>0){
+      rows.push({agId:sup.id, name:sup.name, rate:supRate, amount:Math.round(total*(supRate/100)*100)/100});
+    }
+    current=sup;
+  }
+  return rows;
 }
 async function saveOrder(){
   const agId=document.getElementById('no-agent').value;
@@ -1427,6 +1464,11 @@ async function saveOrder(){
         });
         breakdown.push({agId:'gmbh',agName:'GmbH',directPct:gmbhPct,amount:gmbhAmt,isGmbh:true,subsidyPct:Math.round(subsidyPct*100)/100});
       }
+      // 把上级分成也存入 breakdown（标记 isSupervisor:true）
+      const supRows=getSupRows(agId, total);
+      supRows.forEach(s=>{
+        breakdown.push({agId:s.agId,agName:s.name,directPct:s.rate,amount:s.amount,isSupervisor:true});
+      });
     }
     snap={fml:rule.fml,params:{...rule.params},inputs,result:total,breakdown,gmbhSubsidy,ruleId:rule.id,at:new Date().toISOString()};
   }
@@ -2186,52 +2228,95 @@ function rIncome(){
   const filterAgId=isAdmin?agSel.value:(CU?.agentId||'');
   const [from,to]=incDateRange();
   const fromD=new Date(from),toD=new Date(to+'T23:59:59');
-  const filterOrders=(fromDate, toDate)=>S.orders.filter(o=>{
+
+  const inRange=(o)=>{
     const d=new Date(o.settledDate||o.date||o.createdAt||'2000-01-01');
-    const agMatch=filterAgId?o.agId===filterAgId:true;
-    return agMatch && o.status==='已结算' && d>=fromDate && d<=toDate;
+    return o.status==='已结算' && d>=fromD && d<=toD;
+  };
+
+  // ── 普通收入：作为主销售员或分佣人的订单 ──────────────────
+  const directOrders=S.orders.filter(o=>{
+    if(!inRange(o)) return false;
+    if(!filterAgId) return true;
+    // 主销售员
+    if(o.agId===filterAgId) return true;
+    // 多人分佣中
+    if(o.splits&&o.splits.find(s=>s.agId===filterAgId)) return true;
+    return false;
   });
-  const orders=filterOrders(fromD, toD);
-  const periodLen=toD-fromD;
-  const prevFrom=new Date(fromD-periodLen);
-  const prevTo=new Date(fromD-1);
-  const prevOrders=filterOrders(prevFrom, prevTo);
+
   const calcPersonal=(o)=>{
     const agObj=S.agents.find(x=>x.id===o.agId);
     const rate=agObj?.commissionRate!=null?parseFloat(agObj.commissionRate):33;
     const total=o.snap?.result||0;
+    const myId=filterAgId||o.agId;
+    // 多人分佣：找自己那一行
     if(o.splits&&o.splits.length>0){
-      const myAgId=filterAgId||CU?.agentId||o.agId;
-      const mySplit=o.splits.find(s=>s.agId===myAgId);
-      return {total, rate, personalAmt:mySplit?total*(mySplit.pct/100):0};
+      const mySplit=o.splits.find(s=>s.agId===myId);
+      return {total, rate:mySplit?mySplit.pct:0, personalAmt:mySplit?total*(mySplit.pct/100):0, isSplit:true};
     }
-    return {total, rate, personalAmt:total*(rate/100)};
+    // 是否是主销售员
+    if(myId===o.agId) return {total, rate, personalAmt:total*(rate/100), isSplit:false};
+    return {total, rate:0, personalAmt:0, isSplit:false};
   };
-  const rows=orders.map(o=>({o,...calcPersonal(o)}));
-  const prevRows=prevOrders.map(o=>({o,...calcPersonal(o)}));
-  const totalOrders=rows.length;
-  const totalRevenue=rows.reduce((s,r)=>s+r.total,0);
+
+  const rows=directOrders.map(o=>({o,...calcPersonal(o),isSup:false}));
+
+  // ── 上级分成收入：作为上级从下级订单中获得的额外收入 ─────
+  const supIncomeRows=[];
+  if(filterAgId){
+    S.orders.forEach(o=>{
+      if(!inRange(o)) return;
+      const snap=o.snap;
+      if(!snap||!snap.breakdown) return;
+      const supEntry=snap.breakdown.find(b=>b.agId===filterAgId&&b.isSupervisor);
+      if(supEntry){
+        supIncomeRows.push({
+          o, total:snap.result||0, rate:supEntry.directPct,
+          personalAmt:supEntry.amount, isSup:true,
+          subAgName:agN(o.agId)
+        });
+      }
+    });
+  }
+
+  const allRows=[...rows, ...supIncomeRows];
+  const periodLen=toD-fromD;
+  const prevFrom=new Date(fromD-periodLen);
+  const prevTo=new Date(fromD-1);
+
+  const totalOrders=directOrders.length;
+  const totalRevenue=directOrders.reduce((s,o)=>s+(o.snap?.result||0),0);
   const totalPersonal=rows.reduce((s,r)=>s+r.personalAmt,0);
-  const prevOrders2=prevRows.length;
-  const prevRevenue=prevRows.reduce((s,r)=>s+r.total,0);
-  const prevPersonal=prevRows.reduce((s,r)=>s+r.personalAmt,0);
+  const totalSupIncome=supIncomeRows.reduce((s,r)=>s+r.personalAmt,0);
+
   const cmpArrow=(cur,prev)=>{
     if(prev===0) return '';
     const pct=((cur-prev)/prev*100).toFixed(1);
     const up=cur>=prev;
     return `<span style="font-size:12px;color:${up?'var(--tx-success)':'var(--tx-danger)'}">${up?'▲':'▼'} ${Math.abs(pct)}% 较上期</span>`;
   };
-  document.getElementById('inc-stats').innerHTML=`
-    <div class="sc"><div class="lbl">已结算订单数</div><div class="val">${totalOrders}</div><div style="margin-top:4px">${cmpArrow(totalOrders,prevOrders2)}</div></div>
-    <div class="sc"><div class="lbl">订单总佣金（业绩）</div><div class="val" style="color:var(--tx-info)">${eur(totalRevenue)}</div><div style="margin-top:4px">${cmpArrow(totalRevenue,prevRevenue)}</div></div>
-    <div class="sc"><div class="lbl">个人到手金额</div><div class="val" style="color:var(--tx-success)">${eur(totalPersonal)}</div><div style="margin-top:4px">${cmpArrow(totalPersonal,prevPersonal)}</div></div>`;
-  document.getElementById('inc-table').innerHTML=rows.length?[...rows].sort((a,b)=>new Date(b.o.date)-new Date(a.o.date)).map(({o,total,rate,personalAmt})=>`<tr>
-    <td>${o.date||'—'}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td>
+
+  const statsHtml=[
+    {l:'已结算订单数', v:totalOrders},
+    {l:'订单总佣金（业绩）', v:eur(totalRevenue), color:'var(--tx-info)'},
+    {l:'个人到手金额', v:eur(totalPersonal), color:'var(--tx-success)'},
+    ...(totalSupIncome>0?[{l:'🏆 上级分成收入', v:eur(totalSupIncome), color:'var(--tx-success)'}]:[]),
+  ].map(x=>`<div class="sc"><div class="lbl">${x.l}</div><div class="val"${x.color?` style="color:${x.color}"`:''}>${x.v}</div></div>`).join('');
+
+  document.getElementById('inc-stats').innerHTML=statsHtml;
+
+  const tableRows=allRows.length?[...allRows].sort((a,b)=>new Date(b.o.settledDate||b.o.date)-new Date(a.o.settledDate||a.o.date)).map(({o,total,rate,personalAmt,isSup,subAgName})=>`<tr${isSup?' style="background:rgba(21,128,61,.04)"':''}>
+    <td>${o.settledDate||o.date||'—'}</td>
+    <td>${isSup?`<span style="color:var(--tx-success)">🏆 ${subAgName}（下级）</span>`:(o.vn||o.cust||'—')}</td>
+    <td>${pdN(o.pdId)}</td>
     <td style="font-weight:500">${eur(total)}</td>
-    <td style="color:var(--tx-info)">${rate.toFixed(1)}%</td>
+    <td style="color:${isSup?'var(--tx-success)':'var(--tx-info)'}">${rate.toFixed?rate.toFixed(1):rate}%${isSup?' <span style="font-size:10px;color:var(--tx3)">上级</span>':''}</td>
     <td style="font-weight:500;color:var(--tx-success)">${eur(personalAmt)}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
   </tr>`).join(''):'<tr><td colspan="7" class="empty">该时间段暂无已结算订单</td></tr>';
+
+  document.getElementById('inc-table').innerHTML=tableRows;
 }
 
 function tryRestoreSession(){

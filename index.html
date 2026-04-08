@@ -1333,16 +1333,19 @@ function updateBreakdown(total){
   const isMulti=document.getElementById('no-split-toggle').checked;
   const rate=getAgentRate(agId);
   let rows='';
-  let gmbhPct, gmbhAmt, subsidyPct=0;
+  let subsidyPct=0;
 
-  // ── 计算上级分成（公司额外支付）──
+  // ── 上级分成（从GmbH留存里划出）──────────────────────────
   const supRows=getSupRows(agId, total);
+  const totalSupPct=supRows.reduce((s,r)=>s+r.rate,0);
 
   if(!isMulti){
     const agentAmt=total*(rate/100);
-    gmbhPct=100-rate;
-    gmbhAmt=total*(gmbhPct/100);
+    // GmbH = (100 - agent - supervisor) %
+    const gmbhPct=Math.max(0, 100-rate-totalSupPct);
+    const gmbhAmt=total*(gmbhPct/100);
     rows=`<tr><td>${S.agents.find(x=>x.id===agId)?.name||'—'}</td><td style="color:var(--tx-info)">${rate.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(agentAmt)}</td></tr>`;
+    rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
   } else {
     const splitRowEls=[...document.querySelectorAll('#no-split-rows > div')];
     const splits=splitRowEls.map(row=>{
@@ -1358,36 +1361,34 @@ function updateBreakdown(total){
       }
     }).filter(Boolean);
     const splitTotal=splits.reduce((s,r)=>s+r.pct,0);
-    gmbhPct=Math.max(0,100-splitTotal);
-    gmbhAmt=total*(gmbhPct/100);
+    // GmbH = 100 - splitTotal - supervisor%
+    const gmbhPct=Math.max(0, 100-splitTotal-totalSupPct);
+    const gmbhAmt=total*(gmbhPct/100);
     subsidyPct=Math.max(0,splitTotal-rate);
     rows=splits.map(r=>{
       const amt=total*(r.pct/100);
       const nameCell=r.isExt?`<span style="color:var(--tx-warn);font-style:italic">${r.name}</span>`:r.name;
       return `<tr><td>${nameCell}</td><td style="color:var(--tx-info)">${r.pct.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(amt)}</td></tr>`;
     }).join('');
+    if(subsidyPct>0){
+      const normalGmbhPct=Math.max(0,100-rate-totalSupPct);
+      rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（正常留存）</td><td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(total*(normalGmbhPct/100))}</td></tr>
+      <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(total*(subsidyPct/100))}</td></tr>`;
+    } else {
+      rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
+    }
   }
 
-  if(subsidyPct>0){
-    const normalGmbhPct=(100-rate);
-    const normalGmbhAmt=total*(normalGmbhPct/100);
-    const subsidyAmt=Math.round(total*(subsidyPct/100)*100)/100;
-    rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（正常留存）</td><td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(normalGmbhAmt)}</td></tr>
-    <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(total*(subsidyPct/100))}</td></tr>`;
-  } else {
-    rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
-  }
-
-  // 上级分成行（绿色，公司额外支付）
+  // 上级分成行（从GmbH划出，绿色显示）
   const supHtml=supRows.map(s=>
     `<tr style="background:rgba(21,128,61,.04)">
       <td style="color:var(--tx-success)">🏆 ${s.name}（上级）</td>
       <td style="color:var(--tx-success)">${s.rate.toFixed(1)}%</td>
-      <td style="font-weight:500;color:var(--tx-success)">${eur(s.amount)}<span style="font-size:10px;margin-left:4px;color:var(--tx3)">公司额外支付</span></td>
+      <td style="font-weight:500;color:var(--tx-success)">${eur(s.amount)}<span style="font-size:10px;margin-left:4px;color:var(--tx3)">从GmbH留存划出</span></td>
     </tr>`).join('');
 
   const subsidyBanner=subsidyPct>0?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH 额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`:'';
-  const supBanner=supRows.length>0?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-success);margin-bottom:6px">🏆 上级分成将由公司额外支付，不影响销售员到手金额</div>`:'';
+  const supBanner=supRows.length>0?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-success);margin-bottom:6px">🏆 上级分成从 GmbH 留存中划出，总计 ${totalSupPct.toFixed(1)}%，各方合计仍为 100%</div>`:'';
 
   document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}${supBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}${supHtml}</tbody></table>`;
 }
@@ -1445,16 +1446,19 @@ async function saveOrder(){
     let gmbhSubsidy=false;
     if(total!==null){
       const rate=getAgentRate(agId);
+      const supRows=getSupRows(agId, total);
+      const totalSupPct=supRows.reduce((s,r)=>s+r.rate,0);
       if(!splits){
         const agentAmt=Math.round(total*(rate/100)*100)/100;
-        const gmbhAmt=Math.round(total*(1-rate/100)*100)/100;
+        const gmbhPct=Math.max(0,100-rate-totalSupPct);
+        const gmbhAmt=Math.round(total*(gmbhPct/100)*100)/100;
         breakdown=[
           {agId,agName:S.agents.find(x=>x.id===agId)?.name||'',directPct:rate,amount:agentAmt},
-          {agId:'gmbh',agName:'GmbH',directPct:100-rate,amount:gmbhAmt,isGmbh:true},
+          {agId:'gmbh',agName:'GmbH',directPct:gmbhPct,amount:gmbhAmt,isGmbh:true},
         ];
       } else {
         const splitSum=splits.reduce((s,r)=>s+r.pct,0);
-        const gmbhPct=Math.max(0,100-splitSum);
+        const gmbhPct=Math.max(0,100-splitSum-totalSupPct);
         const gmbhAmt=Math.round(total*(gmbhPct/100)*100)/100;
         const subsidyPct=Math.max(0,splitSum-rate);
         gmbhSubsidy=subsidyPct>0.005;
@@ -1464,8 +1468,7 @@ async function saveOrder(){
         });
         breakdown.push({agId:'gmbh',agName:'GmbH',directPct:gmbhPct,amount:gmbhAmt,isGmbh:true,subsidyPct:Math.round(subsidyPct*100)/100});
       }
-      // 把上级分成也存入 breakdown（标记 isSupervisor:true）
-      const supRows=getSupRows(agId, total);
+      // 上级分成存入 breakdown（从GmbH划出，标记 isSupervisor:true）
       supRows.forEach(s=>{
         breakdown.push({agId:s.agId,agName:s.name,directPct:s.rate,amount:s.amount,isSupervisor:true});
       });

@@ -573,7 +573,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
       </div>
     </div>
     <div class="stats" id="inc-stats" style="margin-bottom:16px"></div>
-    <table><thead><tr><th>日期</th><th>客户</th><th>产品</th><th>订单总佣金</th><th>个人比例</th><th>到手金额</th><th>状态</th></tr></thead>
+    <table><thead><tr><th>日期</th><th>销售员</th><th>客户</th><th>产品</th><th>订单总佣金</th><th>个人比例</th><th>到手金额</th><th>状态</th></tr></thead>
     <tbody id="inc-table"></tbody></table>
   </div>
 </div>
@@ -2311,13 +2311,14 @@ function rIncome(){
 
   const tableRows=allRows.length?[...allRows].sort((a,b)=>new Date(b.o.settledDate||b.o.date)-new Date(a.o.settledDate||a.o.date)).map(({o,total,rate,personalAmt,isSup,subAgName})=>`<tr${isSup?' style="background:rgba(21,128,61,.04)"':''}>
     <td>${o.settledDate||o.date||'—'}</td>
+    <td style="color:var(--tx2)">${agN(o.agId)}</td>
     <td>${isSup?`<span style="color:var(--tx-success)">🏆 ${subAgName}（下级）</span>`:(o.vn||o.cust||'—')}</td>
     <td>${pdN(o.pdId)}</td>
     <td style="font-weight:500">${eur(total)}</td>
     <td style="color:${isSup?'var(--tx-success)':'var(--tx-info)'}">${rate.toFixed?rate.toFixed(1):rate}%${isSup?' <span style="font-size:10px;color:var(--tx3)">上级</span>':''}</td>
     <td style="font-weight:500;color:var(--tx-success)">${eur(personalAmt)}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-  </tr>`).join(''):'<tr><td colspan="7" class="empty">该时间段暂无已结算订单</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">该时间段暂无已结算订单</td></tr>';
 
   document.getElementById('inc-table').innerHTML=tableRows;
 }

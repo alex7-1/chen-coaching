@@ -385,9 +385,9 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <!-- ADMIN -->
 <div class="page" id="page-admin">
   <div class="tbar">
-    <div class="tab on" onclick="aTab('agents')">销售人员</div>
-    <div class="tab" onclick="aTab('providers')">供应商</div>
-    <div class="tab" onclick="aTab('products')">产品</div>
+    <div class="tab on" onclick="aTab('agents')" data-i18n="tab_agents">销售人员</div>
+    <div class="tab" onclick="aTab('providers')" data-i18n="tab_providers">供应商</div>
+    <div class="tab" onclick="aTab('products')" data-i18n="tab_products">产品</div>
   </div>
   <div id="adm-agents">
     <div class="card"><div class="ch"><div class="ct">销售人员管理</div><button class="btn pri" onclick="openAgM()">＋ 添加</button></div>
@@ -1229,16 +1229,16 @@ function rDash(){
   const pnd=S.orders.filter(o=>o.status!=='已结算').reduce((s,o)=>s+(o.snap?.result||0),0);
   const sn=S.renewals.filter(r=>days(r.end)<=90).length;
   document.getElementById('dash-stats').innerHTML=[
-    {l:'订单总数',v:S.orders.length,s:''},
-    {l:'佣金总额',v:eur(tot),s:'所有订单'},
-    {l:'未结算佣金',v:eur(pnd),s:'待处理'},
-    {l:'90天内到期',v:sn+'份',s:'合同续约提醒'},
-  ].map(x=>`<div class="sc"><div class="lbl">${x.l}</div><div class="val">${x.v}</div><div class="sub">${x.s}</div></div>`).join('');
+    {l:t('total_orders'),v:S.orders.length,s:''},
+    {l:t('total_commission'),v:eur(tot),s:''},
+    {l:t('unsettled_commission'),v:eur(pnd),s:''},
+    {l:t('expiring_count'),v:sn+(_lang==='de'?' Stück':_lang==='en'?' items':'份'),s:''},
+  ].map(x=>`<div class="sc"><div class="lbl">${x.l}</div><div class="val">${x.v}</div></div>`).join('');
   const rec=[...S.orders].reverse().slice(0,6);
-  document.getElementById('dash-orders').innerHTML=rec.length?rec.map(o=>`<tr><td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td><td>${eur(o.snap?.result)}</td><td><span class="bdg ${sc(o.status)}">${o.status}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty">暂无订单</td></tr>';
+  document.getElementById('dash-orders').innerHTML=rec.length?rec.map(o=>`<tr><td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td><td>${eur(o.snap?.result)}</td><td><span class="bdg ${sc(o.status)}">${o.status}</span></td></tr>`).join(''):`<tr><td colspan="5" class="empty">${t('no_orders')}</td></tr>`;
   const rs=S.renewals.filter(r=>days(r.end)<=90).slice(0,5);
-  document.getElementById('dash-rct').textContent=rs.length+'份';
-  document.getElementById('dash-renewals').innerHTML=rs.length?rs.map(r=>`<tr><td>${r.cust}</td><td>${r.type}</td><td>${r.end}</td><td><span class="bdg ${days(r.end)<=30?'r':'a'}">${days(r.end)}天</span></td></tr>`).join(''):'<tr><td colspan="4" class="empty">无</td></tr>';
+  document.getElementById('dash-rct').textContent=rs.length+(_lang==='de'?' Stück':_lang==='en'?' items':'份');
+  document.getElementById('dash-renewals').innerHTML=rs.length?rs.map(r=>`<tr><td>${r.cust}</td><td>${r.type}</td><td>${r.end}</td><td><span class="bdg ${days(r.end)<=30?'r':'a'}">${days(r.end)}${_lang==='de'?' T.':_lang==='en'?' d':'天'}</span></td></tr>`).join(''):`<tr><td colspan="4" class="empty">${t('no_orders')}</td></tr>`;
 }
 
 // ── 日期解析：支持粘贴各种格式 ─────────────────────────────
@@ -1562,18 +1562,20 @@ function updateBreakdown(total){
   let rows='';
   let subsidyPct=0;
 
-  // ── 上级分成（从GmbH留存里划出）──────────────────────────
-  const supRows=getSupRows(agId, total);
-  const totalSupPct=supRows.reduce((s,r)=>s+r.rate,0);
-
   if(!isMulti){
+    // 单人模式：自动计算上级分成
+    const supRows=getSupRows(agId, total);
+    const totalSupPct=supRows.reduce((s,r)=>s+r.rate,0);
     const agentAmt=total*(rate/100);
-    // GmbH = (100 - agent - supervisor) %
     const gmbhPct=Math.max(0, 100-rate-totalSupPct);
     const gmbhAmt=total*(gmbhPct/100);
     rows=`<tr><td>${S.agents.find(x=>x.id===agId)?.name||'—'}</td><td style="color:var(--tx-info)">${rate.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(agentAmt)}</td></tr>`;
     rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
+    const supHtml=supRows.map(s=>`<tr style="background:rgba(21,128,61,.04)"><td style="color:var(--tx-success)">🏆 ${s.name}（上级）</td><td style="color:var(--tx-success)">${s.rate.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-success)">${eur(s.amount)}<span style="font-size:10px;margin-left:4px;color:var(--tx3)">从GmbH划出</span></td></tr>`).join('');
+    const supBanner=supRows.length>0?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-success);margin-bottom:6px">🏆 上级分成从GmbH留存划出，总计${totalSupPct.toFixed(1)}%，各方合计仍为100%</div>`:'';
+    document.getElementById('no-breakdown').innerHTML=`${supBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}${supHtml}</tbody></table>`;
   } else {
+    // 多人分佣模式：完全以填写的分成为准，不再自动附加上级行
     const splitRowEls=[...document.querySelectorAll('#no-split-rows > div')];
     const splits=splitRowEls.map(row=>{
       const pct=parseFloat(row.querySelector('.split-pct')?.value)||0;
@@ -1588,8 +1590,8 @@ function updateBreakdown(total){
       }
     }).filter(Boolean);
     const splitTotal=splits.reduce((s,r)=>s+r.pct,0);
-    // GmbH = 100 - splitTotal - supervisor%
-    const gmbhPct=Math.max(0, 100-splitTotal-totalSupPct);
+    // GmbH = 100 - 所有人的分成合计（多人模式下不再单独加上级行）
+    const gmbhPct=Math.max(0, 100-splitTotal);
     const gmbhAmt=total*(gmbhPct/100);
     subsidyPct=Math.max(0,splitTotal-rate);
     rows=splits.map(r=>{
@@ -1598,26 +1600,15 @@ function updateBreakdown(total){
       return `<tr><td>${nameCell}</td><td style="color:var(--tx-info)">${r.pct.toFixed(1)}%</td><td style="font-weight:500;color:var(--tx-info)">${eur(amt)}</td></tr>`;
     }).join('');
     if(subsidyPct>0){
-      const normalGmbhPct=Math.max(0,100-rate-totalSupPct);
+      const normalGmbhPct=Math.max(0,100-rate);
       rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（正常留存）</td><td style="color:var(--tx2)">${normalGmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(total*(normalGmbhPct/100))}</td></tr>
       <tr><td style="color:var(--tx-warn);font-weight:500">⚠ GmbH 额外补贴</td><td style="color:var(--tx-warn);font-weight:500">${subsidyPct.toFixed(1)}%</td><td style="color:var(--tx-warn);font-weight:500">${eur(total*(subsidyPct/100))}</td></tr>`;
     } else {
       rows+=`<tr style="border-top:.5px solid var(--bd)"><td style="color:var(--tx2)">GmbH（自动计算）</td><td style="color:var(--tx2)">${gmbhPct.toFixed(1)}%</td><td style="color:var(--tx2)">${eur(gmbhAmt)}</td></tr>`;
     }
+    const subsidyBanner=subsidyPct>0?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`:'';
+    document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-
-  // 上级分成行（从GmbH划出，绿色显示）
-  const supHtml=supRows.map(s=>
-    `<tr style="background:rgba(21,128,61,.04)">
-      <td style="color:var(--tx-success)">🏆 ${s.name}（上级）</td>
-      <td style="color:var(--tx-success)">${s.rate.toFixed(1)}%</td>
-      <td style="font-weight:500;color:var(--tx-success)">${eur(s.amount)}<span style="font-size:10px;margin-left:4px;color:var(--tx3)">从GmbH留存划出</span></td>
-    </tr>`).join('');
-
-  const subsidyBanner=subsidyPct>0?`<div style="background:var(--bg-warn);border:.5px solid var(--bd-warn);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-warn);margin-bottom:6px">⚠ GmbH 额外补贴 ${subsidyPct.toFixed(1)}%（${eur(total*(subsidyPct/100))}），保存后将在订单列表中标注</div>`:'';
-  const supBanner=supRows.length>0?`<div style="background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--tx-success);margin-bottom:6px">🏆 上级分成从 GmbH 留存中划出，总计 ${totalSupPct.toFixed(1)}%，各方合计仍为 100%</div>`:'';
-
-  document.getElementById('no-breakdown').innerHTML=`${subsidyBanner}${supBanner}<div style="font-size:11px;font-weight:500;color:var(--tx2);margin-bottom:6px">佣金分配明细（实时预览）</div><table style="font-size:12px;width:100%"><thead><tr><th style="font-size:11px">人员</th><th style="font-size:11px">占总佣金</th><th style="font-size:11px">到手金额</th></tr></thead><tbody>${rows}${supHtml}</tbody></table>`;
 }
 
 // 获取某销售员的所有上级分成行（支持多层级）
@@ -1877,10 +1868,11 @@ function editOrd(id){
 
   // 删除权限：已结算订单仅admin可删，未结算manager+可删
   const delBtn=document.getElementById('eom-del');
-  const canDel=(o.status==='已结算')?canConfig():canSettle();
+  const isAdmin_=CU?.role==='admin';
+  const canDel=(o.status==='已结算')?isAdmin_:canSettle();
   if(canDel){
     delBtn.style.display='block';
-    delBtn.textContent=o.status==='已结算'?`🗑 ${t('delete')}（已结算·仅admin）`:`🗑 ${t('delete')}`;
+    delBtn.textContent=o.status==='已结算'?`🗑 ${t('delete')} (Admin only)`:t('delete');
     delBtn.onclick=async()=>{
       if(confirm(t('confirm_delete'))){
         S.orders=S.orders.filter(x=>x.id!==id);
@@ -2046,13 +2038,14 @@ async function saveOrdEdit(){
 }
 
 function rSettle(){
+  const settle_lbl=_lang==='de'?'Abrechnen':_lang==='en'?'Settle':'结算';
   document.getElementById('stl-table').innerHTML=S.orders.length?[...S.orders].reverse().map(o=>
     `<tr><td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
     <td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td><td>${pdN(o.pdId)}</td>
     <td>${eur(o.snap?.result)}</td><td>${o.settledDate||'—'}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-    <td>${(o.status!=='已结算'&&canSettle())?`<button class="btn sm pri" onclick="qSettle('${o.id}')">结算</button>`:'—'}</td></tr>`
-  ).join(''):'<tr><td colspan="8" class="empty">暂无订单</td></tr>';
+    <td>${(o.status!=='已结算'&&canSettle())?`<button class="btn sm pri" onclick="qSettle('${o.id}')">${settle_lbl}</button>`:'—'}</td></tr>`
+  ).join(''):`<tr><td colspan="8" class="empty">${t('no_orders')}</td></tr>`;
 }
 async function qSettle(id){
   const o=S.orders.find(x=>x.id===id);
@@ -2078,24 +2071,30 @@ function rPromo(){
       <div style="font-size:22px;font-weight:500;margin:4px 0">${eur(rol)}</div>
       <span class="bdg">${cur.l} · ${cur.p}</span>
       ${nx?`<div class="pb"><div class="pf" style="width:${Math.min(100,(rol-cur.mn)/(nx.mn-cur.mn)*100).toFixed(1)}%"></div></div>
-      <div style="font-size:11px;color:var(--tx2);margin-top:4px">距 ${nx.l} (${nx.p}) 还差 ${eur(Math.max(0,nx.mn-rol))}</div>`:'<div style="font-size:11px;color:var(--tx-success);margin-top:6px">已达最高等级 C4</div>'}
+      <div style="font-size:11px;color:var(--tx2);margin-top:4px">${_lang==='de'?`Noch ${eur(Math.max(0,nx.mn-rol))} bis ${nx.l}`:_lang==='en'?`${eur(Math.max(0,nx.mn-rol))} until ${nx.l}`:`距 ${nx.l} (${nx.p}) 还差 ${eur(Math.max(0,nx.mn-rol))}`}</div>`:
+      `<div style="font-size:11px;color:var(--tx-success);margin-top:6px">${_lang==='de'?'Höchstes Level C4 erreicht':_lang==='en'?'Highest level C4 reached':'已达最高等级 C4'}</div>`}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-      <div class="sc"><div class="lbl">已结算</div><div class="val" style="font-size:18px">${eur(st)}</div></div>
-      <div class="sc"><div class="lbl">未结算</div><div class="val" style="font-size:18px">${eur(pd)}</div></div>
-      <div class="sc"><div class="lbl">订单数量</div><div class="val" style="font-size:18px">${my.length}</div></div>
+      <div class="sc"><div class="lbl">${_lang==='de'?'Abgerechnet':_lang==='en'?'Settled':'已结算'}</div><div class="val" style="font-size:18px">${eur(st)}</div></div>
+      <div class="sc"><div class="lbl">${_lang==='de'?'Offen':_lang==='en'?'Pending':'未结算'}</div><div class="val" style="font-size:18px">${eur(pd)}</div></div>
+      <div class="sc"><div class="lbl">${_lang==='de'?'Aufträge':_lang==='en'?'Orders':'订单数量'}</div><div class="val" style="font-size:18px">${my.length}</div></div>
     </div>`;
 }
 
 function rRenewals(){
   const list=[...S.renewals].sort((a,b)=>new Date(a.end)-new Date(b.end));
+  const dayLabel=_lang==='de'?'T.':_lang==='en'?'d':'天';
+  const followLabel=_lang==='de'?'Nachverfolgen':_lang==='en'?'Follow up':'需跟进';
+  const normalLabel=_lang==='de'?'Normal':_lang==='en'?'Normal':'正常';
+  const delLabel=_lang==='de'?'Löschen':_lang==='en'?'Delete':'删除';
+  const emptyLabel=_lang==='de'?'Keine Verlängerungen':_lang==='en'?'No renewals':'暂无到期提醒';
   document.getElementById('rn-table').innerHTML=list.length?list.map(r=>{const d=days(r.end);return`<tr>
     <td>${r.cust}</td><td>${r.type}</td><td>${r.prov}</td><td>${r.end}</td>
-    <td><span class="bdg ${d<=30?'r':d<=90?'a':'g'}">${d}天</span></td>
-    <td><span class="bdg ${d<=90?'a':'g'}">${d<=90?'需跟进':'正常'}</span></td>
-    <td><button class="btn sm dan" onclick="delRn('${r.id}')">删除</button></td></tr>`;
-  }).join(''):'<tr><td colspan="7" class="empty">暂无到期提醒</td></tr>';
-  document.getElementById('rn-badge').textContent=S.renewals.filter(r=>days(r.end)<=90).length+'份';
+    <td><span class="bdg ${d<=30?'r':d<=90?'a':'g'}">${d}${dayLabel}</span></td>
+    <td><span class="bdg ${d<=90?'a':'g'}">${d<=90?followLabel:normalLabel}</span></td>
+    <td><button class="btn sm dan" onclick="delRn('${r.id}')">${delLabel}</button></td></tr>`;
+  }).join(''):`<tr><td colspan="7" class="empty">${emptyLabel}</td></tr>`;
+  document.getElementById('rn-badge').textContent=S.renewals.filter(r=>days(r.end)<=90).length+(_lang==='de'?' Stück':_lang==='en'?' items':'份');
 }
 async function addRenewal(){
   const c=document.getElementById('rn-cust').value.trim(),e=document.getElementById('rn-end').value;
@@ -2109,13 +2108,15 @@ async function addRenewal(){
 async function delRn(id){S.renewals=S.renewals.filter(x=>x.id!==id);await apiDelete('renewals',id);rRenewals();}
 
 let curAT='agents';
-function aTab(t){
-  curAT=t;
+function aTab(tabName){
+  curAT=tabName;
   document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
-  const lbl={agents:'销售人员',providers:'供应商',products:'产品'};
-  document.querySelectorAll('.tab').forEach(el=>{if(el.textContent.trim()===lbl[t])el.classList.add('on')});
-  ['agents','providers','products'].forEach(x=>document.getElementById('adm-'+x).style.display=x===t?'block':'none');
-  if(t==='agents')rAgents();else if(t==='providers')rProviders();else rProducts();
+  // Match by data-tab attribute or index
+  const tabs=document.querySelectorAll('.tbar .tab');
+  const idx={agents:0,providers:1,products:2}[tabName];
+  if(tabs[idx]) tabs[idx].classList.add('on');
+  ['agents','providers','products'].forEach(x=>document.getElementById('adm-'+x).style.display=x===tabName?'block':'none');
+  if(tabName==='agents')rAgents();else if(tabName==='providers')rProviders();else rProducts();
 }
 function rAdmin(){aTab(curAT)}
 function rAgents(){document.getElementById('ag-list').innerHTML=S.agents.map(a=>{
@@ -2573,8 +2574,8 @@ function rIncome(){
   const agSel=document.getElementById('inc-agent');
   const isAdmin=seeAllOrders();
   agSel.style.display=isAdmin?'block':'none';
-  if(isAdmin && agSel.innerHTML===''){
-    agSel.innerHTML='<option value="">所有销售员</option>'+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  if(isAdmin && (agSel.innerHTML===''||agSel.querySelector('option')?.textContent!==t('all_agents'))){
+    agSel.innerHTML=`<option value="">${t('all_agents')}</option>`+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
   }
   const filterAgId=isAdmin?agSel.value:(CU?.agentId||'');
   const [from,to]=incDateRange();
@@ -2645,14 +2646,20 @@ function rIncome(){
     if(prev===0) return '';
     const pct=((cur-prev)/prev*100).toFixed(1);
     const up=cur>=prev;
-    return `<span style="font-size:12px;color:${up?'var(--tx-success)':'var(--tx-danger)'}">${up?'▲':'▼'} ${Math.abs(pct)}% 较上期</span>`;
+    const vs=_lang==='de'?'vs. Vorperiode':_lang==='en'?'vs last period':'较上期';
+    return `<span style="font-size:12px;color:${up?'var(--tx-success)':'var(--tx-danger)'}">${up?'▲':'▼'} ${Math.abs(pct)}% ${vs}</span>`;
   };
 
+  const l1=_lang==='de'?'Abgerechnete Aufträge':_lang==='en'?'Settled Orders':'已结算订单数';
+  const l2=_lang==='de'?'Gesamtprovision':_lang==='en'?'Total Commission':'订单总佣金（业绩）';
+  const l3=_lang==='de'?'Persönlich':_lang==='en'?'Personal Amount':'个人到手金额';
+  const l4=_lang==='de'?'🏆 Vorgesetzten-Provision':_lang==='en'?'🏆 Supervisor Commission':'🏆 上级分成收入';
+
   const statsHtml=[
-    {l:'已结算订单数', v:totalOrders},
-    {l:'订单总佣金（业绩）', v:eur(totalRevenue), color:'var(--tx-info)'},
-    {l:'个人到手金额', v:eur(totalPersonal), color:'var(--tx-success)'},
-    ...(totalSupIncome>0?[{l:'🏆 上级分成收入', v:eur(totalSupIncome), color:'var(--tx-success)'}]:[]),
+    {l:l1, v:totalOrders},
+    {l:l2, v:eur(totalRevenue), color:'var(--tx-info)'},
+    {l:l3, v:eur(totalPersonal), color:'var(--tx-success)'},
+    ...(totalSupIncome>0?[{l:l4, v:eur(totalSupIncome), color:'var(--tx-success)'}]:[]),
   ].map(x=>`<div class="sc"><div class="lbl">${x.l}</div><div class="val"${x.color?` style="color:${x.color}"`:''}>${x.v}</div></div>`).join('');
 
   document.getElementById('inc-stats').innerHTML=statsHtml;
@@ -2660,13 +2667,13 @@ function rIncome(){
   const tableRows=allRows.length?[...allRows].sort((a,b)=>new Date(b.o.settledDate||b.o.date)-new Date(a.o.settledDate||a.o.date)).map(({o,total,rate,personalAmt,isSup,subAgName})=>`<tr${isSup?' style="background:rgba(21,128,61,.04)"':''}>
     <td>${o.settledDate||o.date||'—'}</td>
     <td style="color:var(--tx2)">${agN(o.agId)}</td>
-    <td>${isSup?`<span style="color:var(--tx-success)">🏆 ${subAgName}（下级）</span>`:(o.vn||o.cust||'—')}</td>
+    <td>${isSup?`<span style="color:var(--tx-success)">🏆 ${subAgName}（${_lang==='de'?'Untergebener':_lang==='en'?'Subordinate':'下级'}）</span>`:(o.vn||o.cust||'—')}</td>
     <td>${pdN(o.pdId)}</td>
     <td style="font-weight:500">${eur(total)}</td>
-    <td style="color:${isSup?'var(--tx-success)':'var(--tx-info)'}">${rate.toFixed?rate.toFixed(1):rate}%${isSup?' <span style="font-size:10px;color:var(--tx3)">上级</span>':''}</td>
+    <td style="color:${isSup?'var(--tx-success)':'var(--tx-info)'}">${rate.toFixed?rate.toFixed(1):rate}%${isSup?` <span style="font-size:10px;color:var(--tx3)">${_lang==='de'?'Vorgesetzter':_lang==='en'?'Supervisor':'上级'}</span>`:''}</td>
     <td style="font-weight:500;color:var(--tx-success)">${eur(personalAmt)}</td>
     <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
-  </tr>`).join(''):'<tr><td colspan="8" class="empty">该时间段暂无已结算订单</td></tr>';
+  </tr>`).join(''):`<tr><td colspan="8" class="empty">${t('no_orders')}</td></tr>`;
 
   document.getElementById('inc-table').innerHTML=tableRows;
 }
@@ -2743,6 +2750,7 @@ const I18N = {
     all_contracts:'合同续约提醒',
     nachname:'姓 Nachname', vorname:'名 Vorname',
     same_as_vn:'（与投保人相同可留空）',
+    tab_agents:'销售人员', tab_providers:'供应商', tab_products:'产品',
   },
   de: {
     logout:'Abmelden', nav_workspace:'Arbeitsbereich', nav_dashboard:'Dashboard',
@@ -2795,6 +2803,7 @@ const I18N = {
     all_contracts:'Vertragsverlängerungen',
     nachname:'Nachname', vorname:'Vorname',
     same_as_vn:'(leer lassen wenn identisch)',
+    tab_agents:'Berater', tab_providers:'Gesellschaften', tab_products:'Produkte',
   },
   en: {
     logout:'Logout', nav_workspace:'Workspace', nav_dashboard:'Dashboard',
@@ -2847,6 +2856,7 @@ const I18N = {
     all_contracts:'Contract renewals',
     nachname:'Last Name', vorname:'First Name',
     same_as_vn:'(leave empty if same)',
+    tab_agents:'Agents', tab_providers:'Providers', tab_products:'Products',
   }
 };
 
@@ -2871,7 +2881,7 @@ function setLang(lang){
       btn.style.background='transparent';btn.style.color='#64748b';btn.style.borderColor='rgba(255,255,255,.08)';
     }
   });
-  // Update all data-i18n elements
+  // Update all data-i18n elements (static HTML)
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key=el.getAttribute('data-i18n');
     el.textContent=t(key);
@@ -2879,12 +2889,22 @@ function setLang(lang){
   // Update logo sub
   const logoSub=document.getElementById('logo-sub');
   if(logoSub) logoSub.textContent=t('logo_sub');
-  // Re-render current page
-  const activePage=document.querySelector('.page.on')?.id?.replace('page-','');
-  if(activePage){
-    const pageMap={dashboard:rDash,orders:rOrders,settled:rSettled,settlement:rSettle,renewals:rRenewals,promotion:rPromo};
-    pageMap[activePage]?.();
+
+  // Update role label in user bar
+  if(CU){
+    const roleLabels={admin:t('role_admin'),manager:t('role_manager'),agent:t('role_agent')};
+    const ubRole=document.getElementById('ub-role');
+    if(ubRole) ubRole.textContent=roleLabels[CU.role]||CU.role;
   }
+
+  // Re-render ALL pages to update dynamic content (tables, buttons, labels)
+  const activePage=document.querySelector('.page.on')?.id?.replace('page-','');
+  const pageMap={
+    dashboard:rDash, orders:rOrders, settled:rSettled, settlement:rSettle,
+    renewals:rRenewals, promotion:rPromo, income:rIncome, pending:rPending,
+    admin:rAdmin, rules:rRules,
+  };
+  if(activePage && pageMap[activePage]) pageMap[activePage]();
 }
 
 // ══════════════════════════════════════════════════════════════

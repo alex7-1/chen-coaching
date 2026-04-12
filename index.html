@@ -163,7 +163,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
   <div class="nv" onclick="nav('rule-test')"><i>✓</i><span data-i18n="nav_ruletest">规则测试</span></div>
   <div class="nv" id="nav-income" onclick="nav('income')"><i>💰</i><span data-i18n="nav_income">我的收入</span></div>
   <div class="nv" id="nav-pyramid" onclick="nav('pyramid')" style="display:none"><i>🏆</i><span>金字塔分佣</span></div>
-  <div class="nv" onclick="nav('profile')"><i>🔒</i><span>修改密码</span></div>
+  <div class="nv" onclick="nav('profile')"><i>🔒</i><span data-i18n="nav_profile">修改密码</span></div>
   <div class="nv" id="nav-audit" onclick="nav('audit')" style="display:none"><i>📋</i><span data-i18n="nav_audit">审批历史</span></div>
   <div class="nv" id="nav-users" onclick="nav('users')" style="display:none"><i>👤</i><span data-i18n="nav_users">账号管理</span></div>
 </aside>
@@ -173,11 +173,11 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <div class="page on" id="page-dashboard">
   <div class="stats" id="dash-stats"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div class="card"><div class="ch"><span class="ct">最近订单</span></div>
-      <table><thead><tr><th>销售员</th><th>客户</th><th>产品</th><th>佣金</th><th>状态</th></tr></thead>
+    <div class="card"><div class="ch"><span class="ct" data-i18n="recent_orders">最近订单</span></div>
+      <table><thead><tr><th data-i18n="th_agent">销售员</th><th data-i18n="th_customer">客户</th><th data-i18n="th_product">产品</th><th data-i18n="th_commission">佣金</th><th data-i18n="th_status">状态</th></tr></thead>
       <tbody id="dash-orders"></tbody></table></div>
-    <div class="card"><div class="ch"><span class="ct">90天内到期合同</span><span class="bdg a" id="dash-rct"></span></div>
-      <table><thead><tr><th>客户</th><th>类型</th><th>到期</th><th>剩余</th></tr></thead>
+    <div class="card"><div class="ch"><span class="ct" data-i18n="expiring_contracts">90天内到期合同</span><span class="bdg a" id="dash-rct"></span></div>
+      <table><thead><tr><th data-i18n="th_customer">客户</th><th data-i18n="lbl_type">类型</th><th data-i18n="lbl_expires">到期</th><th data-i18n="lbl_remaining">剩余</th></tr></thead>
       <tbody id="dash-renewals"></tbody></table></div>
   </div>
 </div>
@@ -338,7 +338,13 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
       </div>
     </div>
     <div class="stats" id="settled-stats" style="margin-bottom:14px"></div>
+    <div id="settled-batch-bar" style="display:none;background:var(--bg-danger);border:.5px solid var(--bd-danger);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="settled-batch-count" style="font-size:12px;color:var(--tx-danger);font-weight:500"></span>
+      <button class="btn sm dan" onclick="batchDeleteSettled()" data-i18n="batch_delete">批量删除</button>
+      <button class="btn sm" onclick="clearSettledSelection()" style="margin-left:auto" data-i18n="cancel_select">取消选择</button>
+    </div>
     <table><thead><tr>
+      <th id="settled-cb-header" style="width:32px;display:none"><input type="checkbox" id="settled-sel-all" onclick="toggleSettledSelAll()" style="cursor:pointer"/></th>
       <th>#</th><th data-i18n="th_agent">销售员</th><th>Versicherungsnehmer</th>
       <th data-i18n="th_provider">供应商</th><th data-i18n="th_product">产品</th>
       <th data-i18n="th_commission">佣金</th><th data-i18n="th_personal">个人到手</th>
@@ -350,35 +356,35 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 
 <!-- SETTLEMENT -->
 <div class="page" id="page-settlement">
-  <div class="card"><div class="ch"><div class="ct">结算管理</div></div>
-    <table><thead><tr><th>#</th><th>销售员</th><th>客户</th><th>产品</th><th>佣金</th><th>Abrechnungsdatum</th><th>状态</th><th>操作</th></tr></thead>
+  <div class="card"><div class="ch"><div class="ct" data-i18n="nav_settlement">结算管理</div></div>
+    <table><thead><tr><th>#</th><th data-i18n="th_agent">销售员</th><th data-i18n="th_customer">客户</th><th data-i18n="th_product">产品</th><th data-i18n="th_commission">佣金</th><th>Abrechnungsdatum</th><th data-i18n="th_status">状态</th><th data-i18n="th_action">操作</th></tr></thead>
     <tbody id="stl-table"></tbody></table>
   </div>
 </div>
 
 <!-- PROMOTION -->
 <div class="page" id="page-promotion">
-  <div class="card"><div class="ch"><div class="ct">晋升追踪</div></div>
-    <div style="max-width:280px;margin-bottom:16px"><div class="ff"><label>销售员</label><select id="promo-agent" onchange="renderPromo()"></select></div></div>
+  <div class="card"><div class="ch"><div class="ct" data-i18n="nav_promotion">晋升追踪</div></div>
+    <div style="max-width:280px;margin-bottom:16px"><div class="ff"><label data-i18n="th_agent">销售员</label><select id="promo-agent" onchange="renderPromo()"></select></div></div>
     <div id="promo-content"></div>
   </div>
 </div>
 
 <!-- RENEWALS -->
 <div class="page" id="page-renewals">
-  <div class="card"><div class="ch"><div class="ct">到期提醒</div><span class="bdg a" id="rn-badge"></span></div>
-    <div class="ib" style="margin-bottom:12px">提前90天自动提醒，到期前主动联系客户续约。</div>
-    <table><thead><tr><th>客户</th><th>类型</th><th>供应商</th><th>到期日</th><th>剩余天数</th><th>状态</th><th>操作</th></tr></thead>
+  <div class="card"><div class="ch"><div class="ct" data-i18n="nav_renewals">到期提醒</div><span class="bdg a" id="rn-badge"></span></div>
+    <div class="ib" style="margin-bottom:12px" data-i18n="renewals_hint">提前90天自动提醒，到期前主动联系客户续约。</div>
+    <table><thead><tr><th data-i18n="th_customer">客户</th><th data-i18n="lbl_type">类型</th><th data-i18n="th_provider">供应商</th><th data-i18n="lbl_expires">到期日</th><th data-i18n="lbl_remaining_days">剩余天数</th><th data-i18n="th_status">状态</th><th data-i18n="th_action">操作</th></tr></thead>
     <tbody id="rn-table"></tbody></table>
   </div>
-  <div class="card"><div class="ch"><div class="ct">添加合同到期提醒</div></div>
+  <div class="card"><div class="ch"><div class="ct" data-i18n="add_renewal">添加合同到期提醒</div></div>
     <div class="fg">
-      <div class="ff"><label>客户姓名</label><input id="rn-cust" placeholder="Vorname Name"/></div>
-      <div class="ff"><label>合同类型</label><select id="rn-type"><option>Internet</option><option>Strom</option><option>Gas</option><option>Mobilfunk</option><option>Sonstiges</option></select></div>
-      <div class="ff"><label>供应商</label><input id="rn-prov" placeholder="z.B. NetAachen"/></div>
-      <div class="ff"><label>合同到期日</label><input id="rn-end" type="date"/></div>
+      <div class="ff"><label data-i18n="lbl_customer_name">客户姓名</label><input id="rn-cust" placeholder="Vorname Name"/></div>
+      <div class="ff"><label data-i18n="lbl_contract_type">合同类型</label><select id="rn-type"><option>Internet</option><option>Strom</option><option>Gas</option><option>Mobilfunk</option><option>Sonstiges</option></select></div>
+      <div class="ff"><label data-i18n="th_provider">供应商</label><input id="rn-prov" placeholder="z.B. NetAachen"/></div>
+      <div class="ff"><label data-i18n="lbl_contract_expiry">合同到期日</label><input id="rn-end" type="date"/></div>
     </div>
-    <div class="br"><button class="btn pri" onclick="addRenewal()">添加</button></div>
+    <div class="br"><button class="btn pri" onclick="addRenewal()" data-i18n="lbl_add">添加</button></div>
   </div>
 </div>
 
@@ -390,15 +396,15 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
     <div class="tab" onclick="aTab('products')" data-i18n="tab_products">产品</div>
   </div>
   <div id="adm-agents">
-    <div class="card"><div class="ch"><div class="ct">销售人员管理</div><button class="btn pri" onclick="openAgM()">＋ 添加</button></div>
+    <div class="card"><div class="ch"><div class="ct" data-i18n="adm_agents">销售人员管理</div><button class="btn pri" onclick="openAgM()">＋ <span data-i18n="lbl_add">添加</span></button></div>
     <div id="ag-list"></div></div>
   </div>
   <div id="adm-providers" style="display:none">
-    <div class="card"><div class="ch"><div class="ct">供应商管理</div><button class="btn pri" onclick="openPvM()">＋ 添加</button></div>
+    <div class="card"><div class="ch"><div class="ct" data-i18n="adm_providers">供应商管理</div><button class="btn pri" onclick="openPvM()">＋ <span data-i18n="lbl_add">添加</span></button></div>
     <div id="pv-list"></div></div>
   </div>
   <div id="adm-products" style="display:none">
-    <div class="card"><div class="ch"><div class="ct">产品管理</div><button class="btn pri" onclick="openPdM()">＋ 添加</button></div>
+    <div class="card"><div class="ch"><div class="ct" data-i18n="adm_products">产品管理</div><button class="btn pri" onclick="openPdM()">＋ <span data-i18n="lbl_add">添加</span></button></div>
     <div id="pd-list"></div></div>
   </div>
 </div>
@@ -407,24 +413,24 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <div class="page" id="page-rules">
   <div class="card">
     <div class="ch">
-      <div><div class="ct">佣金规则配置</div><div class="cs">规则绑定到「供应商 + 产品」，参数后台锁定，销售录单时自动注入</div></div>
-      <button class="btn pri" onclick="openRlM()">＋ 新建规则</button>
+      <div><div class="ct" data-i18n="nav_rules">佣金规则配置</div><div class="cs" data-i18n="rules_sub">规则绑定到「供应商 + 产品」，参数后台锁定，销售录单时自动注入</div></div>
+      <button class="btn pri" onclick="openRlM()">＋ <span data-i18n="new_rule">新建规则</span></button>
     </div>
-    <table><thead><tr><th>类别</th><th>供应商</th><th>产品</th><th>公式</th><th>规则参数</th><th>销售填写变量</th><th>状态</th><th>操作</th></tr></thead>
+    <table><thead><tr><th data-i18n="lbl_category">类别</th><th data-i18n="th_provider">供应商</th><th data-i18n="th_product">产品</th><th data-i18n="lbl_formula">公式</th><th data-i18n="lbl_params">规则参数</th><th data-i18n="lbl_vars">销售填写变量</th><th data-i18n="th_status">状态</th><th data-i18n="th_action">操作</th></tr></thead>
     <tbody id="rl-table"></tbody></table>
   </div>
 </div>
 
 <!-- RULE TEST -->
 <div class="page" id="page-rule-test">
-  <div class="card"><div class="ch"><div class="ct">规则测试</div><span class="bdg g">公式沙盒</span></div>
-    <div style="max-width:380px;margin-bottom:16px"><div class="ff"><label>选择规则</label><select id="rt-rule" onchange="rtChange()"><option value="">请选择…</option></select></div></div>
+  <div class="card"><div class="ch"><div class="ct" data-i18n="nav_ruletest">规则测试</div><span class="bdg g" data-i18n="formula_sandbox">公式沙盒</span></div>
+    <div style="max-width:380px;margin-bottom:16px"><div class="ff"><label data-i18n="lbl_select_rule">选择规则</label><select id="rt-rule" onchange="rtChange()"><option value="" data-i18n="please_select">请选择…</option></select></div></div>
     <div id="rt-sec" style="display:none">
       <div class="fb">
         <div class="fc" id="rt-fml"></div>
         <div id="rt-ap" style="margin-bottom:10px"></div>
         <div id="rt-fields" class="fg"></div>
-        <div class="rb"><div class="rl">测试结果</div><div class="rv" id="rt-res">€ 0,00</div></div>
+        <div class="rb"><div class="rl" data-i18n="lbl_test_result">测试结果</div><div class="rv" id="rt-res">€ 0,00</div></div>
       </div>
     </div>
   </div>
@@ -432,38 +438,38 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 
 <!-- MODALS -->
 <div class="mo" id="mo-order"><div class="mbox" style="width:620px">
-  <div class="mt">订单详情 / 计算快照</div>
+  <div class="mt" data-i18n="order_detail_title">订单详情 / 计算快照</div>
   <div id="mo-order-content"></div>
   <div class="br">
-    <button class="btn" onclick="closeMo('mo-order')">关闭</button>
-    <button class="btn pri" id="mo-settle-btn" style="display:none" onclick="settleFromMo()">标记已结算</button>
+    <button class="btn" onclick="closeMo('mo-order')" data-i18n="lbl_close">关闭</button>
+    <button class="btn pri" id="mo-settle-btn" style="display:none" onclick="settleFromMo()" data-i18n="mark_settled">标记已结算</button>
   </div>
 </div></div>
 
 <div class="mo" id="mo-rule"><div class="mbox">
-  <div class="mt" id="mo-rule-title">新建佣金规则</div>
+  <div class="mt" id="mo-rule-title" data-i18n="new_rule">新建佣金规则</div>
   <div class="fg">
-    <div class="ff"><label>产品类别</label>
+    <div class="ff"><label data-i18n="lbl_category">产品类别</label>
       <select id="rm-cat"><option>PKV</option><option>GKV</option><option>BU</option><option>Risikoleben</option><option>Altersvorsorge</option><option>Zusatzversicherung</option><option>Sachversicherung</option><option>Investment</option><option>Sonstiges</option></select></div>
-    <div class="ff"><label>供应商</label><select id="rm-prov"><option value="">通用（不限供应商）</option></select></div>
-    <div class="ff"><label>产品名称</label><select id="rm-prod"><option value="">请选择…</option></select></div>
+    <div class="ff"><label data-i18n="th_provider">供应商</label><select id="rm-prov"><option value="" data-i18n="universal_provider">通用（不限供应商）</option></select></div>
+    <div class="ff"><label data-i18n="th_product">产品名称</label><select id="rm-prod"><option value="" data-i18n="please_select">请选择…</option></select></div>
   </div>
-  <div class="ff" style="margin-bottom:10px"><label>公式</label><input id="rm-fml" placeholder="(Gesamtbeitrag - GZ - PVN) * Faktor"/></div>
-  <div class="ff" style="margin-bottom:10px"><label>规则参数 JSON（后台锁定，销售不可见）</label><input id="rm-params" placeholder='{"Faktor":9.5}'/></div>
-  <div class="ff" style="margin-bottom:10px"><label>销售填写变量（逗号分隔）</label><input id="rm-vars" placeholder="Gesamtbeitrag,GZ,PVN"/></div>
-  <div class="ff" style="margin-bottom:10px"><label>变量中文标签（逗号分隔，可选）</label><input id="rm-lbls" placeholder="总保费,总附加费,PVN"/></div>
-  <div class="br"><button class="btn" onclick="closeMo('mo-rule')">取消</button><button class="btn pri" onclick="saveRule()">保存规则</button></div>
+  <div class="ff" style="margin-bottom:10px"><label data-i18n="lbl_formula">公式</label><input id="rm-fml" placeholder="(Gesamtbeitrag - GZ - PVN) * Faktor"/></div>
+  <div class="ff" style="margin-bottom:10px"><label data-i18n="rule_params_label">规则参数 JSON（后台锁定，销售不可见）</label><input id="rm-params" placeholder='{"Faktor":9.5}'/></div>
+  <div class="ff" style="margin-bottom:10px"><label data-i18n="rule_vars_label">销售填写变量（逗号分隔）</label><input id="rm-vars" placeholder="Gesamtbeitrag,GZ,PVN"/></div>
+  <div class="ff" style="margin-bottom:10px"><label data-i18n="rule_lbls_label">变量标签（逗号分隔，可选）</label><input id="rm-lbls" placeholder="总保费,总附加费,PVN"/></div>
+  <div class="br"><button class="btn" onclick="closeMo('mo-rule')" data-i18n="cancel">取消</button><button class="btn pri" onclick="saveRule()" data-i18n="lbl_save_rule">保存规则</button></div>
 </div></div>
 
 <div class="mo" id="mo-agent"><div class="mbox" style="width:480px">
-  <div class="mt" id="mo-agent-title">添加销售人员</div>
+  <div class="mt" id="mo-agent-title" data-i18n="adm_add_agent">添加销售人员</div>
   <div class="fg c1">
-    <div class="ff"><label>姓名 *</label><input id="am-name" placeholder="Vorname Name"/></div>
-    <div class="ff"><label>MAK号码</label><input id="am-mak" placeholder="MAK000000"/></div>
+    <div class="ff"><label data-i18n="lbl_name_req">姓名 *</label><input id="am-name" placeholder="Vorname Name"/></div>
+    <div class="ff"><label>MAK-Nummer</label><input id="am-mak" placeholder="MAK000000"/></div>
     <div class="ff"><label>Email</label><input id="am-email" type="email"/></div>
     <div class="ff"><label>Telefon</label><input id="am-tel" placeholder="+49 …"/></div>
     <div class="ff">
-      <label>个人佣金比例（Provisionsanteil Berater）</label>
+      <label data-i18n="agent_rate_label">个人佣金比例（Provisionsanteil Berater）</label>
       <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
         <div style="position:relative;width:110px">
           <input type="number" id="am-rate" min="0" max="100" step="0.5" value="33"
@@ -471,48 +477,45 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
             style="width:100%;padding:8px 28px 8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:20px;font-weight:500;text-align:right;font-family:var(--font)"/>
           <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--tx2)">%</span>
         </div>
-        <span style="font-size:13px;color:var(--tx2)">销售员个人获得的比例</span>
+        <span style="font-size:13px;color:var(--tx2)" data-i18n="agent_rate_hint">销售员个人获得的比例</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
         <div style="background:var(--bg-info);border:.5px solid var(--bd-info);border-radius:var(--r);padding:10px 14px;text-align:center">
-          <div style="font-size:11px;color:var(--tx-info);margin-bottom:4px">销售员到手</div>
+          <div style="font-size:11px;color:var(--tx-info);margin-bottom:4px" data-i18n="agent_share">销售员到手</div>
           <div style="font-size:22px;font-weight:500;color:var(--tx-info)" id="am-rate-show">33.0%</div>
         </div>
         <div style="background:var(--bg2);border:.5px solid var(--bd);border-radius:var(--r);padding:10px 14px;text-align:center">
-          <div style="font-size:11px;color:var(--tx2);margin-bottom:4px">公司留存</div>
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:4px" data-i18n="company_share">公司留存</div>
           <div style="font-size:22px;font-weight:500;color:var(--tx2)" id="am-rate-co">67.0%</div>
         </div>
       </div>
-      <div style="font-size:11px;color:var(--tx3);margin-top:6px">销售员比例 + 公司留存 = 100%。多人分佣时，分的是销售员的这部分，公司比例不变。</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:6px" data-i18n="rate_hint">销售员比例 + 公司留存 = 100%。</div>
     </div>
-    <!-- 金字塔上级绑定 -->
     <hr style="margin:4px 0"/>
-    <div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px">🏆 金字塔层级（可选）</div>
+    <div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px" data-i18n="pyramid_section">🏆 金字塔层级（可选）</div>
     <div class="fg" style="margin-bottom:0">
       <div class="ff">
-        <label>上级销售员（推荐人）</label>
-        <select id="am-supervisor">
-          <option value="">无上级</option>
-        </select>
+        <label data-i18n="lbl_supervisor">上级销售员（推荐人）</label>
+        <select id="am-supervisor"><option value="" data-i18n="no_supervisor">无上级</option></select>
       </div>
       <div class="ff">
-        <label>上级额外分佣比例 %</label>
+        <label data-i18n="lbl_sup_rate">上级额外分佣比例 %</label>
         <div style="position:relative">
           <input type="number" id="am-sup-rate" min="0" max="30" step="0.5" value="0" placeholder="0"
             style="width:100%;padding:8px 28px 8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font)"/>
           <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--tx2)">%</span>
         </div>
-        <div style="font-size:11px;color:var(--tx3);margin-top:3px">公司额外支付，不从该销售员佣金中扣</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:3px" data-i18n="sup_rate_hint">公司额外支付，不从该销售员佣金中扣</div>
       </div>
     </div>
   </div>
-  <div class="br"><button class="btn" onclick="closeMo('mo-agent')">取消</button><button class="btn pri" onclick="saveAgent()">保存</button></div>
+  <div class="br"><button class="btn" onclick="closeMo('mo-agent')" data-i18n="cancel">取消</button><button class="btn pri" onclick="saveAgent()" data-i18n="save">保存</button></div>
 </div></div>
 
 <div class="mo" id="mo-prov"><div class="mbox" style="width:480px">
-  <div class="mt" id="mo-prov-title">添加供应商</div>
+  <div class="mt" id="mo-prov-title" data-i18n="adm_add_provider">添加供应商</div>
   <div class="fg">
-    <div class="ff"><label>供应商名称 *</label><input id="pm-name" placeholder="Hanse Merkur"/></div>
+    <div class="ff"><label data-i18n="lbl_provider_name">供应商名称 *</label><input id="pm-name" placeholder="Hanse Merkur"/></div>
     <div class="ff"><label>Vermittlernummer</label><input id="pm-vnum"/></div>
     <div class="ff"><label>Ansprechpartner</label><input id="pm-contact"/></div>
     <div class="ff"><label>Email</label><input id="pm-email"/></div>
@@ -520,23 +523,23 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
     <div class="ff"><label>Abrechnungsrhythmus</label><input id="pm-rhythm" placeholder="Monatlich / Wöchentlich"/></div>
   </div>
   <div class="ff" style="margin-bottom:10px"><label>Notizen</label><textarea id="pm-notes" rows="2"></textarea></div>
-  <div class="br"><button class="btn" onclick="closeMo('mo-prov')">取消</button><button class="btn pri" onclick="saveProv()">保存</button></div>
+  <div class="br"><button class="btn" onclick="closeMo('mo-prov')" data-i18n="cancel">取消</button><button class="btn pri" onclick="saveProv()" data-i18n="save">保存</button></div>
 </div></div>
 
 <div class="mo" id="mo-prod"><div class="mbox" style="width:420px">
-  <div class="mt" id="mo-prod-title">添加产品</div>
+  <div class="mt" id="mo-prod-title" data-i18n="adm_add_product">添加产品</div>
   <div class="fg c1">
-    <div class="ff"><label>产品名称 *</label><input id="pdm-name"/></div>
-    <div class="ff"><label>产品类别</label>
+    <div class="ff"><label data-i18n="lbl_product_name">产品名称 *</label><input id="pdm-name"/></div>
+    <div class="ff"><label data-i18n="lbl_category">产品类别</label>
       <select id="pdm-cat"><option>PKV</option><option>GKV</option><option>BU</option><option>Risikoleben</option><option>Altersvorsorge</option><option>Zusatzversicherung</option><option>Sachversicherung</option><option>Investment</option><option>Sonstiges</option></select></div>
-    <div class="ff"><label>关联供应商（可选）</label><select id="pdm-prov"><option value="">不限定</option></select></div>
+    <div class="ff"><label data-i18n="lbl_linked_provider">关联供应商（可选）</label><select id="pdm-prov"><option value="" data-i18n="any_provider">不限定</option></select></div>
   </div>
-  <div class="br"><button class="btn" onclick="closeMo('mo-prod')">取消</button><button class="btn pri" onclick="saveProd()">保存</button></div>
+  <div class="br"><button class="btn" onclick="closeMo('mo-prod')" data-i18n="cancel">取消</button><button class="btn pri" onclick="saveProd()" data-i18n="save">保存</button></div>
 </div></div>
 
 <!-- 编辑订单弹窗 - 含佣金重新计算 -->
 <div class="mo" id="mo-edit-ord"><div class="mbox" style="width:600px">
-  <div class="mt">编辑订单</div>
+  <div class="mt" data-i18n="edit_order_title">编辑订单</div>
   <div class="fg">
     <div class="ff"><label>销售人员 Berater</label><select id="eom-agent"></select></div>
     <div class="ff"><label>供应商 Anbieter</label><select id="eom-prov" onchange="eomProdChange()"></select></div>
@@ -592,7 +595,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <div class="page" id="page-income">
   <div class="card">
     <div class="ch">
-      <div><div class="ct">我的收入</div><div class="cs">到手金额 · 订单业绩统计</div></div>
+      <div><div class="ct" data-i18n="nav_income">我的收入</div><div class="cs" data-i18n="income_sub">到手金额 · 订单业绩统计</div></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="inc-agent" style="padding:6px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;display:none" onchange="rIncome()"></select>
         <select id="inc-period" style="padding:6px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onchange="incPeriodChange()">
@@ -609,7 +612,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
       </div>
     </div>
     <div class="stats" id="inc-stats" style="margin-bottom:16px"></div>
-    <table><thead><tr><th>日期</th><th>销售员</th><th>客户</th><th>产品</th><th>订单总佣金</th><th>个人比例</th><th>到手金额</th><th>状态</th></tr></thead>
+    <table><thead><tr><th data-i18n="th_date">日期</th><th data-i18n="th_agent">销售员</th><th data-i18n="th_customer">客户</th><th data-i18n="th_product">产品</th><th data-i18n="th_total_commission">订单总佣金</th><th data-i18n="th_personal_rate">个人比例</th><th data-i18n="th_personal">到手金额</th><th data-i18n="th_status">状态</th></tr></thead>
     <tbody id="inc-table"></tbody></table>
   </div>
 </div>
@@ -617,16 +620,16 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <!-- AUDIT LOG PAGE -->
 <div class="page" id="page-audit">
   <div class="card">
-    <div class="ch"><div class="ct">审批历史记录</div><button class="btn" onclick="loadAuditLog()">⟳ 刷新</button></div>
-    <div id="audit-list"><div class="empty">点击刷新加载记录</div></div>
+    <div class="ch"><div class="ct" data-i18n="nav_audit">审批历史记录</div><button class="btn" onclick="loadAuditLog()">⟳ <span data-i18n="lbl_refresh">刷新</span></button></div>
+    <div id="audit-list"><div class="empty" data-i18n="audit_empty">点击刷新加载记录</div></div>
   </div>
 </div>
 
 <!-- USER MANAGEMENT PAGE (admin only) -->
 <div class="page" id="page-users">
   <div class="card">
-    <div class="ch"><div class="ct">账号管理</div><button class="btn pri" onclick="openUserModal()">＋ 添加账号</button></div>
-    <table><thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>关联销售员</th><th>状态</th><th>操作</th></tr></thead>
+    <div class="ch"><div class="ct" data-i18n="nav_users">账号管理</div><button class="btn pri" onclick="openUserModal()">＋ <span data-i18n="add_account">添加账号</span></button></div>
+    <table><thead><tr><th data-i18n="lbl_username">用户名</th><th data-i18n="lbl_name">姓名</th><th data-i18n="lbl_role">角色</th><th data-i18n="lbl_linked_agent">关联销售员</th><th data-i18n="th_status">状态</th><th data-i18n="th_action">操作</th></tr></thead>
     <tbody id="users-table"></tbody></table>
   </div>
 </div>
@@ -2751,6 +2754,33 @@ const I18N = {
     nachname:'姓 Nachname', vorname:'名 Vorname',
     same_as_vn:'（与投保人相同可留空）',
     tab_agents:'销售人员', tab_providers:'供应商', tab_products:'产品',
+    th_customer:'客户', th_date:'日期',
+    lbl_rolling:'滚动佣金总额', lbl_settled:'已结算', lbl_pending_amt:'未结算', lbl_order_count:'订单数量',
+    lbl_distance_to:'距', lbl_top_level:'已达最高等级',
+    nav_profile:'修改密码', lbl_type:'类型', lbl_expires:'到期日', lbl_remaining:'剩余',
+    lbl_remaining_days:'剩余天数', add_renewal:'添加合同到期提醒', lbl_customer_name:'客户姓名',
+    lbl_contract_type:'合同类型', lbl_contract_expiry:'合同到期日', lbl_add:'添加',
+    renewals_hint:'提前90天自动提醒，到期前主动联系客户续约。',
+    new_rule:'新建规则', rules_sub:'规则绑定到「供应商 + 产品」，参数后台锁定，销售录单时自动注入',
+    lbl_category:'类别', lbl_formula:'公式', lbl_params:'规则参数', lbl_vars:'销售填写变量',
+    formula_sandbox:'公式沙盒', lbl_select_rule:'选择规则', lbl_test_result:'测试结果',
+    order_detail_title:'订单详情 / 计算快照', lbl_close:'关闭', mark_settled:'标记已结算',
+    th_total_commission:'订单总佣金', th_personal_rate:'个人比例',
+    lbl_refresh:'刷新', audit_empty:'点击刷新加载记录',
+    add_account:'添加账号', lbl_username:'用户名', lbl_name:'姓名', lbl_role:'角色',
+    lbl_linked_agent:'关联销售员',
+    adm_agents:'销售人员管理', adm_providers:'供应商管理', adm_products:'产品管理',
+    adm_add_agent:'添加销售人员', adm_add_provider:'添加供应商', adm_add_product:'添加产品',
+    agent_rate_label:'个人佣金比例（Provisionsanteil Berater）', agent_rate_hint:'销售员个人获得的比例',
+    agent_share:'销售员到手', company_share:'公司留存', rate_hint:'销售员比例 + 公司留存 = 100%',
+    pyramid_section:'🏆 金字塔层级（可选）', lbl_supervisor:'上级销售员（推荐人）',
+    no_supervisor:'无上级', lbl_sup_rate:'上级额外分佣比例 %', sup_rate_hint:'公司额外支付，不从该销售员佣金中扣',
+    lbl_provider_name:'供应商名称 *', lbl_product_name:'产品名称 *',
+    lbl_linked_provider:'关联供应商（可选）', any_provider:'不限定',
+    universal_provider:'通用（不限供应商）', rule_params_label:'规则参数 JSON（后台锁定）',
+    rule_vars_label:'销售填写变量（逗号分隔）', rule_lbls_label:'变量标签（逗号分隔，可选）',
+    lbl_save_rule:'保存规则', edit_order_title:'编辑订单',
+    lbl_name_req:'姓名 *', income_sub:'到手金额 · 订单业绩统计',
   },
   de: {
     logout:'Abmelden', nav_workspace:'Arbeitsbereich', nav_dashboard:'Dashboard',
@@ -2804,6 +2834,35 @@ const I18N = {
     nachname:'Nachname', vorname:'Vorname',
     same_as_vn:'(leer lassen wenn identisch)',
     tab_agents:'Berater', tab_providers:'Gesellschaften', tab_products:'Produkte',
+    th_customer:'Kunde', th_date:'Datum',
+    lbl_rolling:'Rollende Provision gesamt', lbl_settled:'Abgerechnet', lbl_pending_amt:'Offen', lbl_order_count:'Aufträge',
+    lbl_distance_to:'Noch bis', lbl_top_level:'Höchstes Level C4 erreicht',
+    nav_profile:'Passwort ändern', lbl_type:'Typ', lbl_expires:'Ablaufdatum', lbl_remaining:'Verbleibend',
+    lbl_remaining_days:'Verbleibende Tage', add_renewal:'Vertragserinnerung hinzufügen', lbl_customer_name:'Kundenname',
+    lbl_contract_type:'Vertragstyp', lbl_contract_expiry:'Vertragsablauf', lbl_add:'Hinzufügen',
+    renewals_hint:'90 Tage vor Ablauf automatisch erinnern – Kunden rechtzeitig kontaktieren.',
+    new_rule:'Neue Regel', rules_sub:'Regeln an Gesellschaft + Produkt gebunden, Parameter gesperrt',
+    lbl_category:'Kategorie', lbl_formula:'Formel', lbl_params:'Regelparameter', lbl_vars:'Berater-Variablen',
+    formula_sandbox:'Formel-Sandbox', lbl_select_rule:'Regel wählen', lbl_test_result:'Testergebnis',
+    order_detail_title:'Auftragsdetails / Berechnungs-Snapshot', lbl_close:'Schließen', mark_settled:'Als abgerechnet markieren',
+    th_total_commission:'Gesamtprovision', th_personal_rate:'Persönlicher Anteil',
+    lbl_refresh:'Aktualisieren', audit_empty:'Klicken zum Laden',
+    add_account:'Konto hinzufügen', lbl_username:'Benutzername', lbl_name:'Name', lbl_role:'Rolle',
+    lbl_linked_agent:'Verknüpfter Berater',
+    adm_agents:'Berater verwalten', adm_providers:'Gesellschaften verwalten', adm_products:'Produkte verwalten',
+    adm_add_agent:'Berater hinzufügen', adm_add_provider:'Gesellschaft hinzufügen', adm_add_product:'Produkt hinzufügen',
+    agent_rate_label:'Persönlicher Provisionsanteil (Provisionsanteil Berater)',
+    agent_rate_hint:'Anteil des Beraters', agent_share:'Berater erhält', company_share:'GmbH-Anteil',
+    rate_hint:'Berateranteil + GmbH = 100%',
+    pyramid_section:'🏆 Pyramide (optional)', lbl_supervisor:'Vorgesetzter (Empfehler)',
+    no_supervisor:'Kein Vorgesetzter', lbl_sup_rate:'Zusätzliche Provision Vorgesetzter %',
+    sup_rate_hint:'Wird von der GmbH gezahlt, nicht vom Berater abgezogen',
+    lbl_provider_name:'Gesellschaftsname *', lbl_product_name:'Produktname *',
+    lbl_linked_provider:'Verknüpfte Gesellschaft (optional)', any_provider:'Beliebig',
+    universal_provider:'Allgemein (alle Gesellschaften)', rule_params_label:'Regelparameter JSON (gesperrt)',
+    rule_vars_label:'Berater-Variablen (kommagetrennt)', rule_lbls_label:'Variablen-Labels (optional)',
+    lbl_save_rule:'Regel speichern', edit_order_title:'Auftrag bearbeiten',
+    lbl_name_req:'Name *', income_sub:'Persönlicher Betrag · Auftragsstatistik',
   },
   en: {
     logout:'Logout', nav_workspace:'Workspace', nav_dashboard:'Dashboard',
@@ -2857,6 +2916,35 @@ const I18N = {
     nachname:'Last Name', vorname:'First Name',
     same_as_vn:'(leave empty if same)',
     tab_agents:'Agents', tab_providers:'Providers', tab_products:'Products',
+    th_customer:'Customer', th_date:'Date',
+    lbl_rolling:'Rolling Commission Total', lbl_settled:'Settled', lbl_pending_amt:'Pending', lbl_order_count:'Orders',
+    lbl_distance_to:'Until', lbl_top_level:'Highest level C4 reached',
+    nav_profile:'Change Password', lbl_type:'Type', lbl_expires:'Expiry', lbl_remaining:'Remaining',
+    lbl_remaining_days:'Days remaining', add_renewal:'Add contract reminder', lbl_customer_name:'Customer name',
+    lbl_contract_type:'Contract type', lbl_contract_expiry:'Contract expiry', lbl_add:'Add',
+    renewals_hint:'Auto-remind 90 days before expiry – contact customers proactively.',
+    new_rule:'New Rule', rules_sub:'Rules bound to provider + product, parameters locked',
+    lbl_category:'Category', lbl_formula:'Formula', lbl_params:'Rule Parameters', lbl_vars:'Agent Variables',
+    formula_sandbox:'Formula Sandbox', lbl_select_rule:'Select Rule', lbl_test_result:'Test Result',
+    order_detail_title:'Order Details / Calculation Snapshot', lbl_close:'Close', mark_settled:'Mark as Settled',
+    th_total_commission:'Total Commission', th_personal_rate:'Personal Rate',
+    lbl_refresh:'Refresh', audit_empty:'Click to load records',
+    add_account:'Add Account', lbl_username:'Username', lbl_name:'Name', lbl_role:'Role',
+    lbl_linked_agent:'Linked Agent',
+    adm_agents:'Manage Agents', adm_providers:'Manage Providers', adm_products:'Manage Products',
+    adm_add_agent:'Add Agent', adm_add_provider:'Add Provider', adm_add_product:'Add Product',
+    agent_rate_label:'Personal Commission Rate (Provisionsanteil Berater)',
+    agent_rate_hint:'Agent\'s personal share', agent_share:'Agent receives', company_share:'Company share',
+    rate_hint:'Agent share + Company = 100%',
+    pyramid_section:'🏆 Pyramid level (optional)', lbl_supervisor:'Supervisor (Referrer)',
+    no_supervisor:'No supervisor', lbl_sup_rate:'Additional supervisor commission %',
+    sup_rate_hint:'Paid by GmbH, not deducted from agent',
+    lbl_provider_name:'Provider name *', lbl_product_name:'Product name *',
+    lbl_linked_provider:'Linked provider (optional)', any_provider:'Any',
+    universal_provider:'General (all providers)', rule_params_label:'Rule parameters JSON (locked)',
+    rule_vars_label:'Agent variables (comma-separated)', rule_lbls_label:'Variable labels (optional)',
+    lbl_save_rule:'Save Rule', edit_order_title:'Edit Order',
+    lbl_name_req:'Name *', income_sub:'Personal amount · Order statistics',
   }
 };
 
@@ -3018,10 +3106,32 @@ function rSettled(){
 
   document.getElementById('settled-summary').textContent=`${list.length} ${_lang==='de'?'Aufträge':_lang==='en'?'orders':'条'} · ${eur(total)}`;
 
+  // settled page header - add batch delete for admin
+  const isAdmin_=CU?.role==='admin';
+  const batchBar=document.getElementById('settled-batch-bar');
+  if(!batchBar && isAdmin_){
+    const bar=document.createElement('div');
+    bar.id='settled-batch-bar';
+    bar.style.cssText='display:none;background:var(--bg-danger);border:.5px solid var(--bd-danger);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap';
+    bar.innerHTML=`<span id="settled-batch-count" style="font-size:12px;color:var(--tx-danger);font-weight:500"></span>
+      <button class="btn sm dan" onclick="batchDeleteSettled()">${_lang==='de'?'Ausgewählte löschen':_lang==='en'?'Delete selected':'删除选中'}</button>
+      <button class="btn sm" onclick="clearSettledSelection()" style="margin-left:auto">${t('cancel_select')}</button>`;
+    document.getElementById('settled-stats').after(bar);
+  }
+
+  // Show checkbox column header for admin
+  const cbHeader=document.getElementById('settled-cb-header');
+  if(cbHeader) cbHeader.style.display=isAdmin_?'':'none';
+
+  let _settledSelected=window._settledSelected||new Set();
+  window._settledSelected=_settledSelected;
+
   document.getElementById('settled-table').innerHTML=list.length?[...list].sort((a,b)=>new Date(b.settledDate||b.date)-new Date(a.settledDate||a.date)).map(o=>{
     const rate=getAgentRate(o.agId);
     const personal=Math.round((o.snap?.result||0)*(rate/100)*100)/100;
+    const isSelected=_settledSelected.has(o.id);
     return `<tr>
+      ${isAdmin_?`<td><input type="checkbox" class="settled-cb" data-id="${o.id}" ${isSelected?'checked':''} onclick="toggleSettledSel('${o.id}',this.checked)" style="cursor:pointer"/></td>`:''}
       <td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
       <td>${agN(o.agId)}</td>
       <td>${o.vn||o.cust||'—'}</td>
@@ -3029,9 +3139,59 @@ function rSettled(){
       <td style="font-weight:500">${eur(o.snap?.result)}</td>
       <td style="color:var(--tx-success);font-weight:500">${eur(personal)}</td>
       <td>${o.settledDate||'—'}</td>
-      <td><button class="btn sm" onclick="viewOrd('${o.id}')">${t('snapshot')}</button></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn sm" onclick="viewOrd('${o.id}')">${t('snapshot')}</button>
+        ${isAdmin_?`<button class="btn sm dan" onclick="deleteSettledOne('${o.id}')">${t('delete')}</button>`:''}
+      </td>
     </tr>`;
-  }).join(''):`<tr><td colspan="9" class="empty">${t('no_orders')}</td></tr>`;
+  }).join(''):`<tr><td colspan="${isAdmin_?10:9}" class="empty">${t('no_orders')}</td></tr>`;
+}
+
+function toggleSettledSelAll(){
+  const all=document.getElementById('settled-sel-all').checked;
+  document.querySelectorAll('.settled-cb').forEach(cb=>{cb.checked=all;toggleSettledSel(cb.dataset.id,all);});
+}
+
+// 已结算订单：单条删除
+async function deleteSettledOne(id){
+  if(CU?.role!=='admin'){alert('Admin only');return;}
+  if(!confirm(t('confirm_delete'))) return;
+  S.orders=S.orders.filter(x=>x.id!==id);
+  await apiDelete('orders',id);
+  window._settledSelected?.delete(id);
+  rSettled();
+}
+
+// 已结算订单：多选
+function toggleSettledSel(id,checked){
+  const sel=window._settledSelected||(window._settledSelected=new Set());
+  if(checked)sel.add(id);else sel.delete(id);
+  const bar=document.getElementById('settled-batch-bar');
+  if(bar){
+    bar.style.display=sel.size>0?'flex':'none';
+    const el=document.getElementById('settled-batch-count');
+    if(el) el.textContent=`${sel.size} ${_lang==='de'?'ausgewählt':_lang==='en'?'selected':'条已选中'}`;
+  }
+}
+function clearSettledSelection(){
+  (window._settledSelected||(window._settledSelected=new Set())).clear();
+  document.querySelectorAll('.settled-cb').forEach(cb=>cb.checked=false);
+  const bar=document.getElementById('settled-batch-bar');
+  if(bar) bar.style.display='none';
+}
+async function batchDeleteSettled(){
+  if(CU?.role!=='admin'){alert('Admin only');return;}
+  const sel=window._settledSelected;
+  if(!sel||sel.size===0){alert('请先选择订单');return;}
+  if(!confirm(t('batch_delete_confirm',{n:sel.size}))) return;
+  const ids=[...sel];
+  for(const id of ids){
+    S.orders=S.orders.filter(x=>x.id!==id);
+    await apiDelete('orders',id);
+  }
+  clearSettledSelection();
+  alert(t('batch_delete_done',{n:ids.length}));
+  rSettled();
 }
 
 function exportSettled(){

@@ -152,6 +152,7 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
   <div class="nv" onclick="nav('new-order')"><i>＋</i><span data-i18n="nav_neworder">新建订单</span></div>
   <div class="nv" onclick="nav('orders')"><i>≡</i><span data-i18n="nav_orders">订单列表</span></div>
   <div class="nv" onclick="nav('settled')"><i>✓</i><span data-i18n="nav_settled">已结算订单</span></div>
+  <div class="nv" id="nav-pending" onclick="nav('pending')" style="display:none"><i>⏳</i><span data-i18n="nav_pending">待审批</span><span id="pending-badge" style="margin-left:auto;background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span></div>
   <div class="nav-sec" data-i18n="nav_finance">财务</div>
   <div class="nv" onclick="nav('settlement')"><i>€</i><span data-i18n="nav_settlement">结算管理</span></div>
   <div class="nv" onclick="nav('promotion')"><i>↑</i><span data-i18n="nav_promotion">晋升追踪</span></div>
@@ -185,67 +186,102 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
 <div class="page" id="page-new-order">
   <div class="card">
     <div class="ch">
-      <div><div class="ct">新建订单</div><div class="cs">公式引擎驱动 · 规则参数自动注入</div></div>
+      <div><div class="ct" data-i18n="nav_neworder">新建订单</div><div class="cs" data-i18n="no_subtitle">公式引擎驱动 · 规则参数自动注入</div></div>
       <span id="no-rbdg" class="bdg" style="display:none"></span>
     </div>
     <div class="fg">
-      <div class="ff"><label>销售人员 Berater *</label><select id="no-agent" onchange="noCalc()"><option value="">请选择…</option></select></div>
-      <div class="ff"><label>供应商 Anbieter *</label><select id="no-prov" onchange="opChange()"><option value="">请选择…</option></select></div>
-      <div class="ff"><label>产品 Produkt *</label><select id="no-prod" onchange="opdChange()"><option value="">请选择…</option></select></div>
-      <div class="ff"><label>Versicherungsnehmer（投保人）*</label><input id="no-vn" placeholder="Vorname Name"/></div>
-      <div class="ff"><label>versicherte Person（被保险人）</label><input id="no-vp" placeholder="如与投保人相同可留空"/></div>
+      <div class="ff"><label data-i18n="lbl_agent">销售人员 Berater *</label><select id="no-agent" onchange="noAgentChange()"><option value="" data-i18n="please_select">请选择…</option></select></div>
+      <div class="ff"><label data-i18n="lbl_provider">供应商 Anbieter *</label><select id="no-prov" onchange="opChange()"><option value="" data-i18n="please_select">请选择…</option></select></div>
+      <div class="ff"><label data-i18n="lbl_product">产品 Produkt *</label><select id="no-prod" onchange="opdChange()"><option value="" data-i18n="please_select">请选择…</option></select></div>
+      <!-- 投保人：拆分姓和名 -->
+      <div class="ff">
+        <label data-i18n="lbl_vn">Versicherungsnehmer（投保人）*</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input id="no-vn-last" placeholder="Nachname（姓）" style="padding:8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font)"/>
+          <input id="no-vn-first" placeholder="Vorname（名）" style="padding:8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font)"/>
+        </div>
+      </div>
+      <!-- 被保险人：拆分姓和名 -->
+      <div class="ff">
+        <label data-i18n="lbl_vp">versicherte Person（被保险人）</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input id="no-vp-last" placeholder="Nachname（姓，与投保人同可留空）" style="padding:8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font)"/>
+          <input id="no-vp-first" placeholder="Vorname（名）" style="padding:8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font)"/>
+        </div>
+      </div>
       <div class="ff"><label>Antragsnummer</label><input id="no-appl" placeholder="AN-2026-"/></div>
       <div class="ff"><label>Vertragsnummer</label><input id="no-vnum" placeholder=""/></div>
       <div class="ff"><label>Tarifname</label><input id="no-tarif" placeholder=""/></div>
-      <div class="ff"><label>Vertragsbeginn</label><input id="no-date" type="date"/></div>
+      <!-- 日期：支持直接粘贴 -->
+      <div class="ff">
+        <label>Vertragsbeginn</label>
+        <input id="no-date" placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
+          style="padding:8px 10px;border:.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;font-family:var(--font);width:100%"
+          oninput="parseDateInput(this)"/>
+      </div>
       <div class="ff"><label>Eingereicht per</label><input id="no-via" placeholder="FF / Mail / …"/></div>
-      <div class="ff"><label>Status</label>
+      <div class="ff"><label data-i18n="lbl_status">Status</label>
         <select id="no-stat">
           <option>Policiert</option><option>Nachbearbeitung</option>
           <option>Policiert - Keine Prov</option><option>Problem Fall</option><option>Eingereicht</option>
         </select></div>
     </div>
 
-    <!-- 佣金分成区域 -->
+    <!-- 佣金分成区域 - 融合金字塔建议 -->
     <div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:500;color:var(--tx2)">Teilung / Aufteilung</span>
+        <span style="font-size:12px;font-weight:500;color:var(--tx2)" data-i18n="lbl_split">Teilung / Aufteilung</span>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);cursor:pointer;font-weight:400">
           <input type="checkbox" id="no-split-toggle" onchange="toggleSplit()" style="width:14px;height:14px;cursor:pointer"/>
-          多人分佣（mehrere Berater）
+          <span data-i18n="multi_split">多人分佣（mehrere Berater）</span>
         </label>
       </div>
-      <div id="no-split-single" style="font-size:12px;color:var(--tx2);padding:8px 10px;background:var(--bg2);border-radius:var(--r);border:.5px solid var(--bd)">
+      <div id="no-split-single" style="font-size:12px;color:var(--tx2);padding:8px 10px;background:var(--bg2);border-radius:var(--r);border:.5px solid var(--bd)" data-i18n="split_hint">
         单人订单，按正常销售比例结算。如需多人分佣请勾选上方选项。
       </div>
       <div id="no-split-multi" style="display:none">
+        <div id="no-pyramid-hint" style="display:none;margin-bottom:8px;padding:8px 10px;background:var(--bg-success);border:.5px solid var(--bd-success);border-radius:var(--r);font-size:11px;color:var(--tx-success)">
+          🏆 <span data-i18n="pyramid_hint">已按金字塔建议预填分成比例，可自由修改</span>
+        </div>
         <div id="no-split-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <button class="btn sm" onclick="addSplitRow()" type="button">＋ 添加销售员</button>
+          <button class="btn sm" onclick="addSplitRow()" type="button">＋ <span data-i18n="add_agent">添加销售员</span></button>
           <span id="no-split-sum" style="font-size:12px;font-weight:500"></span>
         </div>
       </div>
     </div>
 
-    <div class="ff" style="margin-bottom:12px"><label>Beschreibung / Notizen</label><textarea id="no-desc" rows="2"></textarea></div>
+    <div class="ff" style="margin-bottom:12px"><label data-i18n="lbl_desc">Beschreibung / Notizen</label><textarea id="no-desc" rows="2"></textarea></div>
     <div id="no-fml" style="display:none">
       <div class="fb">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:13px;font-weight:500">佣金计算</span>
-          <span style="font-size:11px;color:var(--tx2)">规则参数自动注入，销售不可修改</span>
+          <span style="font-size:13px;font-weight:500" data-i18n="commission_calc">佣金计算</span>
+          <span id="no-rule-hint" style="font-size:11px;color:var(--tx2)" data-i18n="rule_hint_normal">规则参数自动注入，销售不可修改</span>
         </div>
         <div class="fc" id="no-fml-code"></div>
         <div id="no-aparams" style="margin-bottom:10px"></div>
         <div id="no-dynf" class="fg"></div>
-        <div class="rb"><div class="rl">自动计算结果 Gesamtprovision</div><div class="rv" id="no-res">€ 0,00</div>
+        <!-- 手动覆盖金额 -->
+        <div class="rb">
+          <div class="rl" data-i18n="auto_result">自动计算结果 Gesamtprovision</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="rv" id="no-res">€ 0,00</div>
+            <div id="no-manual-wrap" style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="no-manual-result" step="0.01" placeholder="手动输入金额"
+                style="padding:6px 10px;border:.5px solid var(--bd-warn);border-radius:var(--r);background:var(--bg-warn);color:var(--tx-warn);font-size:13px;font-family:var(--font);width:160px"
+                oninput="onManualResult(this.value)"/>
+              <span style="font-size:11px;color:var(--tx-warn)" data-i18n="manual_override">手动覆盖（留空则用自动值）</span>
+              <button class="btn sm" onclick="clearManualResult()" style="font-size:11px" data-i18n="clear_manual">清除</button>
+            </div>
+          </div>
           <div id="no-breakdown" style="margin-top:10px;border-top:.5px solid var(--bd-info);padding-top:10px"></div>
         </div>
       </div>
     </div>
-    <div id="no-norule" style="display:none" class="wb">该产品暂未配置佣金规则，可先保存订单，后续在「佣金规则配置」中补充。</div>
+    <div id="no-norule" style="display:none" class="wb" data-i18n="no_rule_warn">该产品暂未配置佣金规则，可先保存订单，后续在「佣金规则配置」中补充。</div>
     <div class="br">
-      <button class="btn" onclick="nav('orders')">取消</button>
-      <button class="btn pri" onclick="saveOrder()">保存订单并锁定计算快照</button>
+      <button class="btn" onclick="nav('orders')" data-i18n="cancel">取消</button>
+      <button class="btn pri" onclick="saveOrder()" data-i18n="save_order">保存订单并锁定计算快照</button>
     </div>
   </div>
 </div>
@@ -595,7 +631,48 @@ hr{border:none;border-top:.5px solid var(--bd);margin:12px 0}
   </div>
 </div>
 
-<!-- SUPERVISOR COMMISSION PAGE -->
+<!-- PENDING APPROVALS PAGE -->
+<div class="page" id="page-pending">
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct" data-i18n="nav_pending">待审批</div><div class="cs" data-i18n="pending_sub">需要 GmbH 审批的订单</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn" onclick="batchApprovePending()" data-i18n="batch_approve">批量审批选中</button>
+        <button class="btn pri" onclick="approveAllPending()" data-i18n="approve_all">全部审批</button>
+      </div>
+    </div>
+    <!-- 批量操作栏 -->
+    <div id="pending-batch-bar" style="display:none;background:var(--bg-info);border:.5px solid var(--bd-info);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="pending-batch-count" style="font-size:12px;color:var(--tx-info);font-weight:500"></span>
+      <button class="btn sm pri" onclick="batchApprovePending()" data-i18n="batch_approve">批量审批</button>
+      <button class="btn sm" onclick="clearPendingSelection()" style="margin-left:auto" data-i18n="cancel_select">取消选择</button>
+    </div>
+    <table><thead><tr>
+      <th style="width:32px"><input type="checkbox" id="pending-sel-all" onclick="togglePendingSelAll()" style="cursor:pointer"/></th>
+      <th>#</th><th data-i18n="th_agent">销售员</th><th>Versicherungsnehmer</th>
+      <th data-i18n="th_provider">供应商</th><th data-i18n="th_product">产品</th>
+      <th data-i18n="th_commission">佣金</th><th>GmbH <span data-i18n="subsidy">补贴</span>%</th>
+      <th data-i18n="th_status">状态</th><th data-i18n="th_action">操作</th>
+    </tr></thead>
+    <tbody id="pending-table"></tbody></table>
+  </div>
+</div>
+
+<!-- 审批备注 MODAL -->
+<div class="mo" id="mo-approve-note"><div class="mbox" style="width:420px">
+  <div class="mt" data-i18n="approve_note_title">审批备注</div>
+  <div class="ff" style="margin-bottom:12px">
+    <label data-i18n="approve_note_label">备注（可选，直接点确认跳过）</label>
+    <textarea id="approve-note-input" rows="3" style="margin-top:6px"></textarea>
+  </div>
+  <div class="br">
+    <button class="btn" onclick="closeMo('mo-approve-note')" data-i18n="cancel">取消</button>
+    <button class="btn" onclick="confirmApproveNote(true)" data-i18n="skip_note">跳过备注</button>
+    <button class="btn pri" onclick="confirmApproveNote(false)" data-i18n="confirm_approve">确认审批</button>
+  </div>
+</div></div>
+
+
 <div class="page" id="page-pyramid">
   <div class="card">
     <div class="ch">
@@ -732,26 +809,28 @@ const DEFAULT_DATA = {
   products:[
     {id:'pd1',name:'PKV',category:'PKV',providerId:''},
     {id:'pd2',name:'GKV',category:'GKV',providerId:''},
+    {id:'pd18',name:'KV Incoming',category:'Zusatzversicherung',providerId:''},
+    {id:'pd9',name:'Flex Altersvorsorge',category:'Altersvorsorge',providerId:''},
+    {id:'pd7',name:'Rürup Altersvorsorge',category:'Altersvorsorge',providerId:''},
+    {id:'pd8',name:'baV Altersvorsorge',category:'Altersvorsorge',providerId:''},
+    {id:'pd6',name:'Riester Altersvorsorge',category:'Altersvorsorge',providerId:''},
     {id:'pd3',name:'BU',category:'BU',providerId:''},
     {id:'pd4',name:'Risikoleben',category:'Risikoleben',providerId:''},
-    {id:'pd5',name:'Altersvorsorge / AV',category:'Altersvorsorge',providerId:''},
-    {id:'pd6',name:'Riester',category:'Altersvorsorge',providerId:''},
-    {id:'pd7',name:'Rürup',category:'Altersvorsorge',providerId:''},
-    {id:'pd8',name:'baV',category:'Altersvorsorge',providerId:''},
-    {id:'pd9',name:'Flex',category:'Altersvorsorge',providerId:''},
     {id:'pd10',name:'PHV',category:'Sachversicherung',providerId:''},
-    {id:'pd11',name:'Rechtsschutz',category:'Sachversicherung',providerId:''},
-    {id:'pd12',name:'KFZ',category:'Sachversicherung',providerId:''},
     {id:'pd13',name:'Hausrat',category:'Sachversicherung',providerId:''},
     {id:'pd14',name:'Wohngebäude',category:'Sachversicherung',providerId:''},
+    {id:'pd11',name:'Rechtsschutz',category:'Sachversicherung',providerId:''},
+    {id:'pd30',name:'Tierkrankenversicherung',category:'Zusatzversicherung',providerId:''},
+    {id:'pd31',name:'Reisekranken',category:'Zusatzversicherung',providerId:''},
+    {id:'pd19',name:'Auslandskranken',category:'Zusatzversicherung',providerId:''},
+    {id:'pd21',name:'Depot Sparplan',category:'Investment',providerId:''},
+    {id:'pd22',name:'Einmalanlage',category:'Investment',providerId:''},
+    {id:'pd12',name:'KFZ',category:'Sachversicherung',providerId:''},
+    {id:'pd5',name:'Altersvorsorge / AV',category:'Altersvorsorge',providerId:''},
     {id:'pd15',name:'Haftpflicht',category:'Sachversicherung',providerId:''},
     {id:'pd16',name:'Hunde HV',category:'Sachversicherung',providerId:''},
     {id:'pd17',name:'Frachtführerhaftpflicht',category:'Sachversicherung',providerId:''},
-    {id:'pd18',name:'KV Incoming',category:'Zusatzversicherung',providerId:''},
-    {id:'pd19',name:'Reise / Auslandskranken',category:'Zusatzversicherung',providerId:''},
     {id:'pd20',name:'Depot',category:'Investment',providerId:''},
-    {id:'pd21',name:'Sparplan',category:'Investment',providerId:''},
-    {id:'pd22',name:'Investment / Einmalig',category:'Investment',providerId:''},
     {id:'pd23',name:'KTG',category:'Sonstiges',providerId:''},
   ],
   rules:[
@@ -782,6 +861,14 @@ const DEFAULT_DATA = {
     {id:'r26',cat:'Investment',pvId:'',pdId:'pd20',fml:'Beitrag * 0.05',params:{},vars:['Beitrag'],lbls:['Investitionsbetrag (投资金额)'],active:true},
     {id:'r27',cat:'Investment',pvId:'',pdId:'pd21',fml:'Beitrag * 0.05',params:{},vars:['Beitrag'],lbls:['Monatlicher Sparbeitrag (月存额)'],active:true},
     {id:'r28',cat:'Investment',pvId:'',pdId:'pd22',fml:'Beitrag * 0.05',params:{},vars:['Beitrag'],lbls:['Einmalbetrag (投资金额)'],active:true},
+    // KFZ 各供应商
+    {id:'r_kfz_p2',cat:'Sachversicherung',pvId:'p2',pdId:'pd12',fml:'Beitrag / 1.19 * 8 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
+    {id:'r_kfz_hdi',cat:'Sachversicherung',pvId:'',pdId:'pd12',fml:'Beitrag / 1.19 * 7 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
+    {id:'r_kfz_p11',cat:'Sachversicherung',pvId:'p11',pdId:'pd12',fml:'Beitrag / 1.19 * 8.5 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
+    {id:'r_kfz_p15',cat:'Sachversicherung',pvId:'p15',pdId:'pd12',fml:'Beitrag / 1.19 * 9 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
+    // Reisekranken - Hanse Merkur
+    {id:'r_reise_p1',cat:'Zusatzversicherung',pvId:'p1',pdId:'pd31',fml:'Beitrag / 1.19 * 20 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
+    {id:'r_reise_gen',cat:'Zusatzversicherung',pvId:'',pdId:'pd31',fml:'Beitrag / 1.19 * 20 / 100',params:{},vars:['Beitrag'],lbls:['Jahresbeitrag (年保费)'],active:true},
   ],
   orders:[],
   renewals:[],
@@ -1154,29 +1241,134 @@ function rDash(){
   document.getElementById('dash-renewals').innerHTML=rs.length?rs.map(r=>`<tr><td>${r.cust}</td><td>${r.type}</td><td>${r.end}</td><td><span class="bdg ${days(r.end)<=30?'r':'a'}">${days(r.end)}天</span></td></tr>`).join(''):'<tr><td colspan="4" class="empty">无</td></tr>';
 }
 
+// ── 日期解析：支持粘贴各种格式 ─────────────────────────────
+function parseDateInput(input){
+  const raw=input.value.trim();
+  if(!raw) return;
+  // Try to parse: dd.mm.yyyy, yyyy-mm-dd, dd/mm/yyyy, mmm dd yyyy
+  let d=null;
+  if(/^\d{2}\.\d{2}\.\d{4}$/.test(raw)){
+    const p=raw.split('.');
+    d=new Date(p[2]+'-'+p[1]+'-'+p[0]);
+  } else if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+    d=new Date(raw);
+  } else if(/^\d{2}\/\d{2}\/\d{4}$/.test(raw)){
+    const p=raw.split('/');
+    d=new Date(p[2]+'-'+p[1]+'-'+p[0]);
+  } else {
+    d=new Date(raw);
+  }
+  if(d&&!isNaN(d)){
+    // Store as yyyy-mm-dd internally, display as dd.mm.yyyy
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const dy=String(d.getDate()).padStart(2,'0');
+    input.dataset.isoDate=`${y}-${m}-${dy}`;
+    input.style.borderColor='var(--bd-success)';
+  } else {
+    input.dataset.isoDate='';
+    input.style.borderColor='var(--bd-danger)';
+  }
+}
+function getDateValue(inputId){
+  const el=document.getElementById(inputId);
+  if(!el) return '';
+  return el.dataset.isoDate||el.value||'';
+}
+
+// ── 手动覆盖佣金金额 ────────────────────────────────────────
+let _manualResult=null;
+function onManualResult(val){
+  const v=parseFloat(val);
+  _manualResult=isNaN(v)?null:v;
+  const resEl=document.getElementById('no-res');
+  if(_manualResult!==null){
+    resEl.textContent=eur(_manualResult);
+    resEl.style.color='var(--tx-warn)';
+    updateBreakdown(_manualResult);
+  } else {
+    resEl.style.color='';
+    noCalc();
+  }
+}
+function clearManualResult(){
+  _manualResult=null;
+  const el=document.getElementById('no-manual-result');
+  if(el) el.value='';
+  const resEl=document.getElementById('no-res');
+  if(resEl) resEl.style.color='';
+  noCalc();
+}
+
 function rNewOrd(){
+  _manualResult=null;
   const ag=document.getElementById('no-agent');
-  ag.innerHTML='<option value="">请选择…</option>'+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  ag.innerHTML=`<option value="">${t('please_select')}</option>`+S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
   const pv=document.getElementById('no-prov');
-  pv.innerHTML='<option value="">请选择…</option>'+S.providers.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  document.getElementById('no-prod').innerHTML='<option value="">请选择…</option>'+S.products.map(p=>`<option value="${p.id}">${p.name} (${p.category})</option>`).join('');
+  pv.innerHTML=`<option value="">${t('please_select')}</option>`+S.providers.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  // Products in correct order (as per image 9)
+  document.getElementById('no-prod').innerHTML=`<option value="">${t('please_select')}</option>`+S.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   document.getElementById('no-fml').style.display='none';
   document.getElementById('no-norule').style.display='none';
   document.getElementById('no-res').textContent='€ 0,00';
+  document.getElementById('no-res').style.color='';
   document.getElementById('no-rbdg').style.display='none';
-  ['no-vn','no-vp','no-appl','no-vnum','no-tarif','no-date','no-via','no-desc'].forEach(id=>{document.getElementById(id).value=''});
+  // Clear split name fields
+  ['no-vn-last','no-vn-first','no-vp-last','no-vp-first','no-appl','no-vnum','no-tarif','no-via','no-desc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.value=''; el.dataset.isoDate=''; el.style.borderColor=''; }
+  });
+  const dateEl=document.getElementById('no-date');
+  if(dateEl){ dateEl.value=''; dateEl.dataset.isoDate=''; dateEl.style.borderColor=''; }
+  const manualEl=document.getElementById('no-manual-result');
+  if(manualEl) manualEl.value='';
+  document.getElementById('no-breakdown').innerHTML='';
   document.getElementById('no-split-toggle').checked=false;
   document.getElementById('no-split-single').style.display='block';
   document.getElementById('no-split-multi').style.display='none';
   document.getElementById('no-split-rows').innerHTML='';
+  const pyramidHint=document.getElementById('no-pyramid-hint');
+  if(pyramidHint) pyramidHint.style.display='none';
   updateSplitSum();
   if(CU && !seeAllOrders() && CU.agentId){
-    const agSel = document.getElementById('no-agent');
-    if(agSel){ agSel.value = CU.agentId; agSel.disabled = true; }
+    ag.value=CU.agentId; ag.disabled=true;
   } else {
-    const agSel = document.getElementById('no-agent');
-    if(agSel) agSel.disabled = false;
+    ag.disabled=false;
   }
+  // Update rule hint for admin
+  const ruleHint=document.getElementById('no-rule-hint');
+  if(ruleHint) ruleHint.textContent=t(canConfig()?'rule_hint_admin':'rule_hint_normal');
+}
+
+// ── 销售员选择变更：触发金字塔预填 ──────────────────────────
+function noAgentChange(){
+  noCalc();
+  // If multi-split is already open, re-trigger pyramid suggestion
+  if(document.getElementById('no-split-toggle').checked){
+    fillPyramidSuggestion();
+  }
+}
+
+// ── 金字塔建议预填入多人分佣 ────────────────────────────────
+function fillPyramidSuggestion(){
+  const agId=document.getElementById('no-agent').value;
+  if(!agId) return;
+  const agent=S.agents.find(x=>x.id===agId);
+  if(!agent) return;
+  const supId=agent.supervisorId||'';
+  const supRate=parseFloat(agent.supervisorRate||0);
+  const agRate=getAgentRate(agId);
+  if(!supId||supRate<=0) return;
+  // Clear existing rows and pre-fill
+  document.getElementById('no-split-rows').innerHTML='';
+  // Main agent row
+  addSplitRow(agId, agRate.toFixed(1));
+  // Supervisor row
+  addSplitRow(supId, supRate.toFixed(1));
+  // Show hint
+  const hint=document.getElementById('no-pyramid-hint');
+  if(hint) hint.style.display='block';
+  updateSplitSum();
 }
 
 function toggleSplit(){
@@ -1185,8 +1377,16 @@ function toggleSplit(){
   document.getElementById('no-split-multi').style.display=on?'block':'none';
   if(on && document.getElementById('no-split-rows').children.length===0){
     const agId=document.getElementById('no-agent').value;
-    addSplitRow(agId,'');
-    addSplitRow('','');
+    // Try pyramid suggestion first
+    const agent=S.agents.find(x=>x.id===agId);
+    const supId=agent?.supervisorId||'';
+    const supRate=parseFloat(agent?.supervisorRate||0);
+    if(supId&&supRate>0){
+      fillPyramidSuggestion();
+    } else {
+      addSplitRow(agId,'');
+      addSplitRow('','');
+    }
   }
   noCalc();
 }
@@ -1297,7 +1497,25 @@ function opdChange(){
   document.getElementById('no-rbdg').textContent=`${rule.cat} · ${pvN(rule.pvId)}`;
   document.getElementById('no-rbdg').style.display='inline-block';
   document.getElementById('no-fml-code').textContent=rule.fml;
-  document.getElementById('no-aparams').innerHTML=Object.entries(rule.params).map(([k,v])=>`<span class="pill">自动注入: ${k} = ${v}</span>`).join('');
+
+  // Admin可编辑的params，普通用户只读
+  const isAdm=canConfig();
+  const paramsHtml=Object.entries(rule.params).map(([k,v])=>
+    isAdm
+      ? `<span class="pill" style="display:inline-flex;align-items:center;gap:4px">${k} = <input type="number" step="0.1" data-param="${k}" value="${v}" oninput="noCalc()" style="width:60px;padding:2px 4px;border:.5px solid var(--bd-warn);border-radius:4px;background:var(--bg);color:var(--tx);font-size:11px;font-family:var(--font)"/><span style="font-size:10px;color:var(--tx-warn)">✎</span></span>`
+      : `<span class="pill">自动注入: ${k} = ${v}</span>`
+  ).join('');
+  // Use a dedicated div for admin params
+  let apDiv=document.getElementById('no-aparams-edit');
+  if(!apDiv){
+    apDiv=document.createElement('div');
+    apDiv.id='no-aparams-edit';
+    apDiv.style.marginBottom='10px';
+    document.getElementById('no-aparams').after(apDiv);
+  }
+  document.getElementById('no-aparams').innerHTML='';
+  apDiv.innerHTML=paramsHtml+(isAdm?`<div style="font-size:10px;color:var(--tx-warn);margin-top:4px">⚠ 超级管理员模式：修改参数将在保存时更新全局规则</div>`:'');
+
   if(rule.vars.length===0){
     document.getElementById('no-dynf').innerHTML='<div class="ib">该规则使用固定参数，无需手动填写。</div>';
     noCalc();
@@ -1305,6 +1523,8 @@ function opdChange(){
     document.getElementById('no-dynf').innerHTML=rule.vars.map((v,i)=>`<div class="ff"><label>${rule.lbls[i]||v} <span style="color:#e24b4a">*</span></label><input type="number" step="0.01" placeholder="0,00" data-var="${v}" oninput="noCalc()"/></div>`).join('');
     document.getElementById('no-res').textContent='€ 0,00';
   }
+  // Reset manual override
+  clearManualResult();
 }
 function findR(pvId,pdId){
   let r=S.rules.find(r=>r.active&&r.pvId===pvId&&r.pdId===pdId);if(r)return r;
@@ -1314,13 +1534,20 @@ function findR(pvId,pdId){
   return r||null;
 }
 function noCalc(){
+  if(_manualResult!==null) return; // manual override active, don't recalculate
   const rule=findR(document.getElementById('no-prov').value,document.getElementById('no-prod').value);
   if(!rule)return;
+  // Collect params: rule defaults + admin edits
   const av={...rule.params};
-  document.querySelectorAll('#no-dynf input').forEach(i=>{av[i.dataset.var]=parseFloat(i.value.replace(',','.'))||0});
+  document.querySelectorAll('#no-aparams-edit input[data-param]').forEach(i=>{
+    const v=parseFloat(i.value.replace(',','.'));
+    if(!isNaN(v)) av[i.dataset.param]=v;
+  });
+  document.querySelectorAll('#no-dynf input[data-var]').forEach(i=>{av[i.dataset.var]=parseFloat(i.value.replace(',','.'))||0});
   const res=calcFml(rule.fml,av);
   if(isNaN(res)){document.getElementById('no-res').textContent='公式错误';document.getElementById('no-breakdown').innerHTML='';return;}
   document.getElementById('no-res').textContent=eur(res);
+  document.getElementById('no-res').style.color='';
   updateBreakdown(res);
 }
 function getAgentRate(agId){
@@ -1417,17 +1644,22 @@ async function saveOrder(){
   const agId=document.getElementById('no-agent').value;
   const pvId=document.getElementById('no-prov').value;
   const pdId=document.getElementById('no-prod').value;
-  const vn=document.getElementById('no-vn').value.trim();
-  const vp=document.getElementById('no-vp').value.trim();
-  if(!agId){alert('请选择销售人员');return}
-  if(!pvId){alert('请选择供应商');return}
-  if(!pdId){alert('请选择产品');return}
-  if(!vn){alert('请填写 Versicherungsnehmer（投保人）');return}
+  // 合并姓名字段
+  const vnLast=document.getElementById('no-vn-last')?.value.trim()||'';
+  const vnFirst=document.getElementById('no-vn-first')?.value.trim()||'';
+  const vn=(vnLast+' '+vnFirst).trim();
+  const vpLast=document.getElementById('no-vp-last')?.value.trim()||'';
+  const vpFirst=document.getElementById('no-vp-first')?.value.trim()||'';
+  const vp=(vpLast+' '+vpFirst).trim();
+  if(!agId){alert(t('lbl_agent')+' '+t('please_select'));return}
+  if(!pvId){alert(t('lbl_provider')+' '+t('please_select'));return}
+  if(!pdId){alert(t('lbl_product')+' '+t('please_select'));return}
+  if(!vn){alert('Versicherungsnehmer '+t('please_select'));return}
   const splits=getSplitData();
   if(splits!==null){
     if(splits.length<2){alert('多人分佣模式请至少添加两位销售员');return}
     const splitTotal=splits.reduce((s,r)=>s+r.pct,0);
-    if(splitTotal>100.005){alert(`分佣比例合计为 ${splitTotal.toFixed(1)}%，不能超过 100%，请检查`);return}
+    if(splitTotal>100.005){alert(`分佣比例合计为 ${splitTotal.toFixed(1)}%，不能超过 100%`);return}
     const missing=splits.some(r=>!r.agId&&!r.extName);
     if(missing){alert('请为每一行选择销售员，或填写外部人员姓名');return}
   }
@@ -1435,18 +1667,33 @@ async function saveOrder(){
   const inputs={};
   if(rule&&rule.vars.length>0){
     let miss=false;
-    document.querySelectorAll('#no-dynf input').forEach(i=>{const v=parseFloat(i.value.replace(',','.'));if(isNaN(v)||i.value==='')miss=true;inputs[i.dataset.var]=v||0});
+    document.querySelectorAll('#no-dynf input[data-var]').forEach(i=>{
+      // Skip editable params (they're handled separately)
+      const v=parseFloat(i.value.replace(',','.'));
+      if(isNaN(v)||i.value==='')miss=true;
+      inputs[i.dataset.var]=v||0;
+    });
     if(miss){alert('请填写所有必填变量');return}
   }
+  // Admin可修改的params
+  const editedParams={};
+  document.querySelectorAll('#no-aparams-edit input[data-param]').forEach(i=>{
+    const v=parseFloat(i.value.replace(',','.'));
+    if(!isNaN(v)) editedParams[i.dataset.param]=v;
+  });
+
   let snap=null;
   if(rule){
-    const av={...rule.params,...inputs};const res=calcFml(rule.fml,av);
-    const total=isNaN(res)?null:Math.round(res*100)/100;
+    const mergedParams={...rule.params,...editedParams};
+    const av={...mergedParams,...inputs};
+    const autoRes=calcFml(rule.fml,av);
+    // 手动覆盖或自动值
+    const total=_manualResult!==null?_manualResult:(isNaN(autoRes)?null:Math.round(autoRes*100)/100);
     let breakdown=null;
     let gmbhSubsidy=false;
     if(total!==null){
       const rate=getAgentRate(agId);
-      const supRows=getSupRows(agId, total);
+      const supRows=getSupRows(agId,total);
       const totalSupPct=supRows.reduce((s,r)=>s+r.rate,0);
       if(!splits){
         const agentAmt=Math.round(total*(rate/100)*100)/100;
@@ -1468,13 +1715,24 @@ async function saveOrder(){
         });
         breakdown.push({agId:'gmbh',agName:'GmbH',directPct:gmbhPct,amount:gmbhAmt,isGmbh:true,subsidyPct:Math.round(subsidyPct*100)/100});
       }
-      // 上级分成存入 breakdown（从GmbH划出，标记 isSupervisor:true）
-      supRows.forEach(s=>{
-        breakdown.push({agId:s.agId,agName:s.name,directPct:s.rate,amount:s.amount,isSupervisor:true});
-      });
+      supRows.forEach(s=>{ breakdown.push({agId:s.agId,agName:s.name,directPct:s.rate,amount:s.amount,isSupervisor:true}); });
     }
-    snap={fml:rule.fml,params:{...rule.params},inputs,result:total,breakdown,gmbhSubsidy,ruleId:rule.id,at:new Date().toISOString()};
+    snap={fml:rule.fml,params:mergedParams,inputs,result:total,breakdown,gmbhSubsidy,ruleId:rule.id,at:new Date().toISOString(),manualOverride:_manualResult!==null};
+    // Admin修改了params → 保存回规则
+    if(canConfig()&&Object.keys(editedParams).length>0){
+      Object.assign(rule.params,editedParams);
+      await apiUpdate('rules',rule);
+    }
+  } else if(_manualResult!==null){
+    // 无规则但手动填了金额
+    const total=_manualResult;
+    const rate=getAgentRate(agId);
+    snap={fml:'[手动]',params:{},inputs:{},result:total,breakdown:[
+      {agId,agName:agN(agId),directPct:rate,amount:Math.round(total*(rate/100)*100)/100},
+      {agId:'gmbh',agName:'GmbH',directPct:100-rate,amount:Math.round(total*(1-rate/100)*100)/100,isGmbh:true},
+    ],ruleId:null,at:new Date().toISOString(),manualOverride:true};
   }
+
   const _splitSum=splits?splits.reduce((s,r)=>s+r.pct,0):0;
   const _rate=getAgentRate(agId);
   const _gmbhSubsidy=splits&&_splitSum>_rate+0.005;
@@ -1482,15 +1740,17 @@ async function saveOrder(){
   if(_gmbhSubsidy){
     const totalAmt=snap?.result||0;
     const subsidyAmt=Math.round(totalAmt*(_subsidyPct/100)*100)/100;
-    const confirmed=confirm(`⚠ 此订单分佣超出 ${agN(agId)} 的个人比例 ${_rate.toFixed(1)}%\n\n超出部分：${_subsidyPct.toFixed(1)}%（约 ${eur(subsidyAmt)}）需由 GmbH 额外补贴\n\n此订单将标注「待 Dehua 审批」，确认保存？`);
+    const confirmed=confirm(`⚠ 此订单分佣超出 ${agN(agId)} 的个人比例 ${_rate.toFixed(1)}%\n\n超出部分：${_subsidyPct.toFixed(1)}%（约 ${eur(subsidyAmt)}）\n\n此订单将标注「待审批」，确认保存？`);
     if(!confirmed) return;
   }
-  const order={id:uid(),agId,pvId,pdId,
+  const order={
+    id:uid(),agId,pvId,pdId,
+    vnLast,vnFirst,vpLast,vpFirst,
     vn,vp,
     appl:document.getElementById('no-appl').value.trim(),
     vnum:document.getElementById('no-vnum').value.trim(),
     tarif:document.getElementById('no-tarif').value.trim(),
-    date:document.getElementById('no-date').value||new Date().toISOString().slice(0,10),
+    date:getDateValue('no-date')||new Date().toISOString().slice(0,10),
     via:document.getElementById('no-via').value.trim(),
     splits,
     gmbhSubsidy:_gmbhSubsidy,
@@ -1498,14 +1758,15 @@ async function saveOrder(){
     gmbhApproved:false,
     status:document.getElementById('no-stat').value,
     desc:document.getElementById('no-desc').value.trim(),
-    snap,settledDate:null,createdAt:new Date().toISOString()};
+    snap,settledDate:null,createdAt:new Date().toISOString()
+  };
   S.orders.push(order);
-  await apiWrite('orders', order);
-  const _savedMsg='订单已保存'+(snap?' · 佣金快照锁定: '+eur(snap.result):'（无佣金规则，已记录）')+(_gmbhSubsidy?'\n\n⚠ 已标注「待 Dehua 审批」':'');
-  alert(_savedMsg);
+  await apiWrite('orders',order);
+  // Update pending badge
+  updatePendingBadge();
+  alert('✓ '+t('save_order')+(snap?' · '+eur(snap.result):''));
   nav('orders');
 }
-
 function viewOrd(id){
   const o=S.orders.find(x=>x.id===id);S.curOrder=id;const s=o.snap;
   const ir=s?Object.entries(s.inputs||{}).map(([k,v])=>`<tr><td style="color:var(--tx2)">${k}</td><td>${eur(v)}</td></tr>`).join(''):'';
@@ -1614,15 +1875,19 @@ function editOrd(id){
   // 加载佣金计算区域（用已有 pvId/pdId）
   eomLoadRule(o.pvId, o.pdId, o.snap?.inputs||{}, o.snap?.result||null);
 
-  // agent 不能删除
+  // 删除权限：已结算订单仅admin可删，未结算manager+可删
   const delBtn=document.getElementById('eom-del');
-  if(canSettle()){
+  const canDel=(o.status==='已结算')?canConfig():canSettle();
+  if(canDel){
     delBtn.style.display='block';
+    delBtn.textContent=o.status==='已结算'?`🗑 ${t('delete')}（已结算·仅admin）`:`🗑 ${t('delete')}`;
     delBtn.onclick=async()=>{
-      if(confirm('确认删除？')){
+      if(confirm(t('confirm_delete'))){
         S.orders=S.orders.filter(x=>x.id!==id);
         await apiDelete('orders',id);
-        closeMo('mo-edit-ord');rOrders();
+        closeMo('mo-edit-ord');
+        updatePendingBadge();
+        rOrders();
       }
     };
   } else {
@@ -2089,6 +2354,89 @@ function doLogout(){
   document.getElementById('login-err').classList.remove('show');
 }
 
+// ══════════════════════════════════════════════════════════════
+//  待审批页面
+// ══════════════════════════════════════════════════════════════
+let _pendingApproveIds=[];
+
+function updatePendingBadge(){
+  const count=S.orders.filter(o=>o.gmbhSubsidy&&!o.gmbhApproved).length;
+  const badge=document.getElementById('pending-badge');
+  if(badge){badge.textContent=count>0?count:'';badge.style.display=count>0?'inline':'none';}
+}
+
+function rPending(){
+  updatePendingBadge();
+  const list=S.orders.filter(o=>o.gmbhSubsidy&&!o.gmbhApproved);
+  document.getElementById('pending-table').innerHTML=list.length?list.map(o=>`<tr>
+    <td><input type="checkbox" class="pending-cb" data-id="${o.id}" onclick="togglePendingSel('${o.id}',this.checked)" style="cursor:pointer"/></td>
+    <td class="mn" style="color:var(--tx2)">${o.id.slice(-4)}</td>
+    <td>${agN(o.agId)}</td><td>${o.vn||o.cust||'—'}</td>
+    <td>${pvN(o.pvId)}</td><td>${pdN(o.pdId)}</td>
+    <td style="font-weight:500">${eur(o.snap?.result)}</td>
+    <td style="color:var(--tx-warn);font-weight:500">${(o.gmbhSubsidyPct||0).toFixed(1)}%</td>
+    <td><span class="bdg ${sc(o.status)}">${o.status}</span></td>
+    <td><button class="btn sm pri" onclick="approveOne('${o.id}')">${t('confirm_approve')}</button></td>
+  </tr>`).join(''):`<tr><td colspan="10" class="empty">${t('no_orders')}</td></tr>`;
+}
+
+let _pendingSelected=new Set();
+function togglePendingSel(id,checked){
+  if(checked)_pendingSelected.add(id);else _pendingSelected.delete(id);
+  const bar=document.getElementById('pending-batch-bar');
+  if(bar){
+    bar.style.display=_pendingSelected.size>0?'flex':'none';
+    const el=document.getElementById('pending-batch-count');
+    if(el) el.textContent=`${_pendingSelected.size} ${_lang==='de'?'ausgewählt':_lang==='en'?'selected':'条已选中'}`;
+  }
+}
+function togglePendingSelAll(){
+  const all=document.getElementById('pending-sel-all').checked;
+  document.querySelectorAll('.pending-cb').forEach(cb=>{cb.checked=all;togglePendingSel(cb.dataset.id,all);});
+}
+function clearPendingSelection(){
+  _pendingSelected.clear();
+  document.querySelectorAll('.pending-cb').forEach(cb=>cb.checked=false);
+  const bar=document.getElementById('pending-batch-bar');
+  if(bar) bar.style.display='none';
+}
+function approveOne(orderId){
+  _pendingApproveIds=[orderId];
+  document.getElementById('approve-note-input').value='';
+  openMo('mo-approve-note');
+}
+function batchApprovePending(){
+  if(_pendingSelected.size===0){alert('请先选择订单');return;}
+  _pendingApproveIds=[..._pendingSelected];
+  document.getElementById('approve-note-input').value='';
+  openMo('mo-approve-note');
+}
+function approveAllPending(){
+  const list=S.orders.filter(o=>o.gmbhSubsidy&&!o.gmbhApproved);
+  if(!list.length){alert(t('no_orders'));return;}
+  _pendingApproveIds=list.map(o=>o.id);
+  document.getElementById('approve-note-input').value='';
+  openMo('mo-approve-note');
+}
+async function confirmApproveNote(skipNote){
+  const note=skipNote?'':(document.getElementById('approve-note-input').value||'');
+  closeMo('mo-approve-note');
+  for(const orderId of _pendingApproveIds){
+    const o=S.orders.find(x=>x.id===orderId);
+    if(!o) continue;
+    o.gmbhApproved=true;o.gmbhApprovedBy=CU?.name||'Admin';
+    o.gmbhApprovedAt=new Date().toISOString();o.gmbhApprovalNote=note;
+    await apiUpdate('orders',o);
+    if(apiConfigured()){
+      try{await fetch(API_URL+'/approve',{method:'POST',
+        headers:{'Content-Type':'application/json','X-Token':CU?.token||''},
+        body:JSON.stringify({orderId,note,username:CU?.username||''})});}catch(e){}
+    }
+  }
+  alert(t('approve_done',{n:_pendingApproveIds.length}));
+  _pendingApproveIds=[];clearPendingSelection();updatePendingBadge();rPending();
+}
+
 async function apiPostAuth(body){
   if(CU) { body.sessionToken = CU.token; body.username = CU.username; }
   return _rawPost(body);
@@ -2347,6 +2695,7 @@ const I18N = {
   zh: {
     logout:'退出', nav_workspace:'工作台', nav_dashboard:'Dashboard',
     nav_neworder:'新建订单', nav_orders:'订单列表', nav_settled:'已结算订单',
+    nav_pending:'待审批', pending_sub:'需要 GmbH 审批的订单',
     nav_finance:'财务', nav_settlement:'结算管理', nav_promotion:'晋升追踪',
     nav_renewals:'到期提醒', nav_config:'后台配置', nav_admin:'基础数据管理',
     nav_rules:'佣金规则配置', nav_ruletest:'规则测试', nav_income:'我的收入',
@@ -2360,16 +2709,45 @@ const I18N = {
     login_title:'订单佣金管理系统', login_forgot:'如忘记密码请联系 Dehua Chen',
     save:'保存', cancel:'取消', delete:'删除', edit:'编辑', snapshot:'快照',
     confirm_delete:'确认删除？', no_orders:'暂无订单',
+    please_select:'请选择…',
+    lbl_agent:'销售人员 Berater *', lbl_provider:'供应商 Anbieter *', lbl_product:'产品 Produkt *',
+    lbl_vn:'Versicherungsnehmer（投保人）*', lbl_vp:'versicherte Person（被保险人）',
+    lbl_status:'状态', lbl_split:'Teilung / Aufteilung', lbl_desc:'Beschreibung / Notizen',
+    multi_split:'多人分佣（mehrere Berater）',
+    split_hint:'单人订单，按正常销售比例结算。如需多人分佣请勾选上方选项。',
+    add_agent:'添加销售员', commission_calc:'佣金计算',
+    rule_hint_normal:'规则参数自动注入，销售不可修改',
+    rule_hint_admin:'超级管理员可修改参数（改后全局生效）',
+    auto_result:'自动计算结果 Gesamtprovision',
+    manual_override:'手动覆盖（留空则用自动值）', clear_manual:'清除',
+    no_rule_warn:'该产品暂未配置佣金规则，可先保存订单，后续在「佣金规则配置」中补充。',
+    save_order:'保存订单并锁定计算快照',
+    no_subtitle:'公式引擎驱动 · 规则参数自动注入',
+    pyramid_hint:'已按金字塔建议预填分成比例，可自由修改',
+    subsidy:'补贴',
+    batch_approve:'批量审批选中', approve_all:'全部审批',
+    approve_note_title:'审批备注', approve_note_label:'备注（可选，直接点确认跳过）',
+    skip_note:'跳过备注', confirm_approve:'确认审批',
     import_confirm:'准备导入 {n} 条历史订单。\n\n注意：历史数据缺少佣金计算信息，将作为"无快照"订单导入，状态默认为 Policiert。\n\n确认导入？',
     import_success:'✓ 成功导入 {n} 条历史订单',
     import_skip:'{n} 行因缺少客户姓名被跳过',
     batch_status_done:'已将 {n} 条订单状态更新为 {s}',
     batch_delete_confirm:'确认删除选中的 {n} 条订单？此操作不可撤销。',
     batch_delete_done:'已删除 {n} 条订单',
+    confirm_approve_n:'确认审批 {n} 条订单？',
+    approve_done:'✓ 已审批 {n} 条订单',
+    settled_orders:'已结算订单', all_settled:'所有已结算',
+    recent_orders:'最近订单', expiring_contracts:'90天内到期合同',
+    total_orders:'订单总数', total_commission:'佣金总额',
+    unsettled_commission:'未结算佣金', expiring_count:'90天内到期',
+    all_contracts:'合同续约提醒',
+    nachname:'姓 Nachname', vorname:'名 Vorname',
+    same_as_vn:'（与投保人相同可留空）',
   },
   de: {
     logout:'Abmelden', nav_workspace:'Arbeitsbereich', nav_dashboard:'Dashboard',
     nav_neworder:'Neuer Auftrag', nav_orders:'Auftragsliste', nav_settled:'Abgerechnete Aufträge',
+    nav_pending:'Ausstehend', pending_sub:'Aufträge die GmbH-Genehmigung benötigen',
     nav_finance:'Finanzen', nav_settlement:'Abrechnung', nav_promotion:'Karriere',
     nav_renewals:'Verlängerungen', nav_config:'Konfiguration', nav_admin:'Stammdaten',
     nav_rules:'Provisionsregeln', nav_ruletest:'Regeltest', nav_income:'Mein Einkommen',
@@ -2380,19 +2758,48 @@ const I18N = {
     th_agent:'Berater', th_provider:'Gesellschaft', th_product:'Produkt',
     th_commission:'Provision', th_status:'Status', th_action:'Aktion', th_personal:'Persönlich',
     logo_sub:'Provisionsmanagement', role_admin:'Superadmin', role_manager:'Manager', role_agent:'Berater',
-    login_title:'Auftrags- & Provisionsmanagement', login_forgot:'Bei vergessenen Passwort bitte Dehua Chen kontaktieren',
+    login_title:'Auftrags- & Provisionsmanagement', login_forgot:'Bei vergessenem Passwort bitte Dehua Chen kontaktieren',
     save:'Speichern', cancel:'Abbrechen', delete:'Löschen', edit:'Bearbeiten', snapshot:'Snapshot',
     confirm_delete:'Wirklich löschen?', no_orders:'Keine Aufträge',
-    import_confirm:'{n} historische Aufträge werden importiert.\n\nHinweis: Historische Daten haben keine Berechnungs-Snapshots und werden mit Status Policiert importiert.\n\nBestätigen?',
-    import_success:'✓ {n} historische Aufträge erfolgreich importiert',
-    import_skip:'{n} Zeilen ohne Kundenname übersprungen',
-    batch_status_done:'{n} Aufträge auf Status {s} gesetzt',
-    batch_delete_confirm:'Wirklich {n} ausgewählte Aufträge löschen? Nicht rückgängig machbar.',
+    please_select:'Bitte wählen…',
+    lbl_agent:'Berater *', lbl_provider:'Gesellschaft *', lbl_product:'Produkt *',
+    lbl_vn:'Versicherungsnehmer *', lbl_vp:'Versicherte Person',
+    lbl_status:'Status', lbl_split:'Teilung / Aufteilung', lbl_desc:'Beschreibung / Notizen',
+    multi_split:'Mehrere Berater',
+    split_hint:'Einzelauftrag, wird nach normalem Provisionssatz abgerechnet.',
+    add_agent:'Berater hinzufügen', commission_calc:'Provisionsberechnung',
+    rule_hint_normal:'Regelparameter automatisch eingefügt, nicht änderbar',
+    rule_hint_admin:'Superadmin kann Parameter ändern (global wirksam)',
+    auto_result:'Automatisch berechnete Gesamtprovision',
+    manual_override:'Manuell überschreiben (leer = automatisch)', clear_manual:'Löschen',
+    no_rule_warn:'Keine Provisionsregel für dieses Produkt konfiguriert.',
+    save_order:'Auftrag speichern & Snapshot sperren',
+    no_subtitle:'Formel-Engine · Regelparameter automatisch',
+    pyramid_hint:'Pyramiden-Vorschlag vorausgefüllt, frei änderbar',
+    subsidy:'Zuschuss',
+    batch_approve:'Auswahl genehmigen', approve_all:'Alle genehmigen',
+    approve_note_title:'Genehmigungsnotiz', approve_note_label:'Notiz (optional, leer lassen zum Überspringen)',
+    skip_note:'Notiz überspringen', confirm_approve:'Genehmigung bestätigen',
+    import_confirm:'{n} historische Aufträge werden importiert.\n\nBestätigen?',
+    import_success:'✓ {n} historische Aufträge importiert',
+    import_skip:'{n} Zeilen übersprungen',
+    batch_status_done:'{n} Aufträge auf {s} gesetzt',
+    batch_delete_confirm:'{n} Aufträge löschen?',
     batch_delete_done:'{n} Aufträge gelöscht',
+    confirm_approve_n:'{n} Aufträge genehmigen?',
+    approve_done:'✓ {n} Aufträge genehmigt',
+    settled_orders:'Abgerechnete Aufträge', all_settled:'Alle abgerechnet',
+    recent_orders:'Letzte Aufträge', expiring_contracts:'In 90 Tagen ablaufende Verträge',
+    total_orders:'Aufträge gesamt', total_commission:'Provision gesamt',
+    unsettled_commission:'Offene Provision', expiring_count:'In 90 Tagen ablaufend',
+    all_contracts:'Vertragsverlängerungen',
+    nachname:'Nachname', vorname:'Vorname',
+    same_as_vn:'(leer lassen wenn identisch)',
   },
   en: {
     logout:'Logout', nav_workspace:'Workspace', nav_dashboard:'Dashboard',
     nav_neworder:'New Order', nav_orders:'Order List', nav_settled:'Settled Orders',
+    nav_pending:'Pending Approval', pending_sub:'Orders requiring GmbH approval',
     nav_finance:'Finance', nav_settlement:'Settlement', nav_promotion:'Career',
     nav_renewals:'Renewals', nav_config:'Configuration', nav_admin:'Master Data',
     nav_rules:'Commission Rules', nav_ruletest:'Rule Test', nav_income:'My Income',
@@ -2406,12 +2813,40 @@ const I18N = {
     login_title:'Order & Commission Management', login_forgot:'Contact Dehua Chen if you forgot your password',
     save:'Save', cancel:'Cancel', delete:'Delete', edit:'Edit', snapshot:'Snapshot',
     confirm_delete:'Confirm delete?', no_orders:'No orders',
-    import_confirm:'Ready to import {n} historical orders.\n\nNote: Historical data has no commission snapshots and will be imported with status Policiert.\n\nConfirm?',
+    please_select:'Please select…',
+    lbl_agent:'Agent *', lbl_provider:'Provider *', lbl_product:'Product *',
+    lbl_vn:'Policyholder *', lbl_vp:'Insured Person',
+    lbl_status:'Status', lbl_split:'Split / Division', lbl_desc:'Description / Notes',
+    multi_split:'Multiple Agents',
+    split_hint:'Single agent order, settled at normal commission rate.',
+    add_agent:'Add Agent', commission_calc:'Commission Calculation',
+    rule_hint_normal:'Rule parameters auto-injected, not editable',
+    rule_hint_admin:'Super admin can edit parameters (changes apply globally)',
+    auto_result:'Auto-calculated Total Commission',
+    manual_override:'Manual override (leave empty for auto)', clear_manual:'Clear',
+    no_rule_warn:'No commission rule configured for this product.',
+    save_order:'Save Order & Lock Snapshot',
+    no_subtitle:'Formula engine · Rule parameters auto-injected',
+    pyramid_hint:'Pre-filled with pyramid suggestion, freely editable',
+    subsidy:'Subsidy',
+    batch_approve:'Approve Selected', approve_all:'Approve All',
+    approve_note_title:'Approval Note', approve_note_label:'Note (optional, leave empty to skip)',
+    skip_note:'Skip Note', confirm_approve:'Confirm Approval',
+    import_confirm:'Ready to import {n} historical orders.\n\nConfirm?',
     import_success:'✓ Successfully imported {n} historical orders',
-    import_skip:'{n} rows skipped (missing customer name)',
-    batch_status_done:'Updated {n} orders to status {s}',
-    batch_delete_confirm:'Delete {n} selected orders? This cannot be undone.',
+    import_skip:'{n} rows skipped',
+    batch_status_done:'Updated {n} orders to {s}',
+    batch_delete_confirm:'Delete {n} selected orders?',
     batch_delete_done:'Deleted {n} orders',
+    confirm_approve_n:'Approve {n} orders?',
+    approve_done:'✓ Approved {n} orders',
+    settled_orders:'Settled Orders', all_settled:'All settled',
+    recent_orders:'Recent Orders', expiring_contracts:'Contracts expiring in 90 days',
+    total_orders:'Total Orders', total_commission:'Total Commission',
+    unsettled_commission:'Unsettled Commission', expiring_count:'Expiring in 90 days',
+    all_contracts:'Contract renewals',
+    nachname:'Last Name', vorname:'First Name',
+    same_as_vn:'(leave empty if same)',
   }
 };
 
@@ -2823,6 +3258,7 @@ function nav(p){
     settlement:rSettle, renewals:rRenewals, admin:rAdmin,
     audit:loadAuditLog, users:rUsers, income:rIncome,
     settled:rSettled, pyramid:loadPyramid, profile:rProfile,
+    pending:rPending,
   };
   pageMap[p]?.();
 }
@@ -2970,21 +3406,29 @@ function applyPermissionsToNav(){
   const isAdmin = CU?.permissions?.canManageConfig;
   const canSettle_ = CU?.permissions?.canSettle;
   document.querySelectorAll('.nav-sec').forEach(el=>{
-    if(el.textContent.trim()==='后台配置' && !isAdmin) el.style.display='none';
+    if(el.textContent.trim()==='后台配置'||el.getAttribute('data-i18n')==='nav_config'){
+      if(!isAdmin) el.style.display='none';
+    }
   });
   ['admin','rules','rule-test'].forEach(p=>{
     const el = document.querySelector(`.nv[onclick="nav('${p}')"]`);
     if(el && !isAdmin) el.style.display='none';
   });
-  // 收入页面所有人可见
+  // 收入所有人可见
   const incEl = document.getElementById('nav-income');
   if(incEl) incEl.style.display='flex';
-  // 金字塔：manager 和 admin 可见
+  // 待审批：admin/manager可见
+  const pendEl = document.getElementById('nav-pending');
+  if(pendEl) pendEl.style.display=(isAdmin||canSettle_)?'flex':'none';
+  // 金字塔：manager+可见
   const pyrEl = document.getElementById('nav-pyramid');
   if(pyrEl) pyrEl.style.display=(canSettle_||isAdmin)?'flex':'none';
-  // 审批/用户管理：admin only
-  document.getElementById('nav-audit').style.display = isAdmin?'flex':'none';
-  document.getElementById('nav-users').style.display = isAdmin?'flex':'none';
+  // 审批/用户：admin only
+  const auEl=document.getElementById('nav-audit');
+  if(auEl) auEl.style.display=isAdmin?'flex':'none';
+  const usEl=document.getElementById('nav-users');
+  if(usEl) usEl.style.display=isAdmin?'flex':'none';
+  updatePendingBadge();
 }
 
 (async function init(){
